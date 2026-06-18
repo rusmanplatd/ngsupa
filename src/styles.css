@@ -1,3 +1,268 @@
-/* You can add global styles to this file, and also import other style files */
-
 @import 'tailwindcss';
+
+/* ============================================================
+   Apple HIG-Inspired Design System — Tailwind v4 Theme
+   ============================================================ */
+
+@theme {
+  /* ── Typography ─────────────────────────────────────────── */
+  --font-sans: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue',
+    system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+
+  /* ── Border Radius ──────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-full: 9999px;
+
+  /* ── Transition Durations ───────────────────────────────── */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+
+  /* ── Apple System Colors ────────────────────────────────── */
+  --color-system-blue: oklch(59% 0.24 264);
+  --color-system-blue-hover: oklch(54% 0.24 264);
+  --color-system-blue-light: oklch(93% 0.06 264);
+  --color-system-red: oklch(59% 0.23 27);
+  --color-system-red-hover: oklch(54% 0.23 27);
+  --color-system-red-light: oklch(93% 0.06 27);
+  --color-system-green: oklch(60% 0.19 145);
+  --color-system-green-light: oklch(93% 0.06 145);
+  --color-system-orange: oklch(70% 0.18 55);
+  --color-system-orange-light: oklch(93% 0.06 55);
+  --color-system-teal: oklch(62% 0.12 200);
+  --color-system-teal-light: oklch(93% 0.04 200);
+  --color-system-purple: oklch(55% 0.22 300);
+  --color-system-purple-light: oklch(93% 0.06 300);
+  --color-system-yellow: oklch(82% 0.16 85);
+  --color-system-pink: oklch(62% 0.22 350);
+  --color-system-indigo: oklch(50% 0.22 280);
+
+  /* ── Gray Palette (SF-style) ────────────────────────────── */
+  --color-gray-50: oklch(98% 0.003 264);
+  --color-gray-100: oklch(96% 0.005 264);
+  --color-gray-200: oklch(92% 0.008 264);
+  --color-gray-300: oklch(87% 0.01 264);
+  --color-gray-400: oklch(71% 0.01 264);
+  --color-gray-500: oklch(55% 0.013 264);
+  --color-gray-600: oklch(44% 0.013 264);
+  --color-gray-700: oklch(37% 0.013 264);
+  --color-gray-800: oklch(27% 0.01 264);
+  --color-gray-900: oklch(21% 0.006 264);
+  --color-gray-950: oklch(14% 0.004 264);
+
+  /* ── Shadows (Apple-style layered) ──────────────────────── */
+  --shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px oklch(0% 0 0 / 0.06), 0 1px 2px oklch(0% 0 0 / 0.04);
+  --shadow-md: 0 4px 12px oklch(0% 0 0 / 0.07),
+    0 2px 4px oklch(0% 0 0 / 0.04);
+  --shadow-lg: 0 12px 32px oklch(0% 0 0 / 0.1),
+    0 4px 8px oklch(0% 0 0 / 0.04);
+  --shadow-xl: 0 20px 48px oklch(0% 0 0 / 0.14),
+    0 8px 16px oklch(0% 0 0 / 0.06);
+}
+
+/* ============================================================
+   Semantic Color Tokens (light-dark adaptive)
+   ============================================================ */
+
+:root {
+  color-scheme: light dark;
+
+  /* ── Surfaces ───────────────────────────────────────────── */
+  --surface-primary: light-dark(#ffffff, oklch(15% 0.006 264));
+  --surface-secondary: light-dark(
+    oklch(97% 0.003 264),
+    oklch(20% 0.008 264)
+  );
+  --surface-tertiary: light-dark(oklch(95% 0.005 264), oklch(24% 0.008 264));
+  --surface-elevated: light-dark(#ffffff, oklch(22% 0.008 264));
+  --surface-grouped: light-dark(oklch(96% 0.003 264), oklch(12% 0.004 264));
+
+  /* ── Text ───────────────────────────────────────────────── */
+  --text-primary: light-dark(oklch(15% 0.005 264), oklch(97% 0.003 264));
+  --text-secondary: light-dark(oklch(44% 0.013 264), oklch(65% 0.01 264));
+  --text-tertiary: light-dark(oklch(60% 0.01 264), oklch(50% 0.01 264));
+  --text-quaternary: light-dark(oklch(74% 0.008 264), oklch(38% 0.008 264));
+  --text-on-fill: #ffffff;
+
+  /* ── Borders / Separators ───────────────────────────────── */
+  --border-default: light-dark(
+    oklch(0% 0 0 / 0.12),
+    oklch(100% 0 0 / 0.12)
+  );
+  --border-opaque: light-dark(oklch(90% 0.005 264), oklch(28% 0.008 264));
+  --separator: light-dark(oklch(0% 0 0 / 0.08), oklch(100% 0 0 / 0.08));
+
+  /* ── Fill / Background accents ──────────────────────────── */
+  --fill-primary: light-dark(oklch(0% 0 0 / 0.04), oklch(100% 0 0 / 0.06));
+  --fill-secondary: light-dark(oklch(0% 0 0 / 0.06), oklch(100% 0 0 / 0.08));
+  --fill-tertiary: light-dark(oklch(0% 0 0 / 0.03), oklch(100% 0 0 / 0.04));
+
+  /* ── Interactive ────────────────────────────────────────── */
+  --interactive-tint: light-dark(
+    oklch(59% 0.24 264 / 0.12),
+    oklch(65% 0.2 264 / 0.2)
+  );
+  --interactive-tint-hover: light-dark(
+    oklch(59% 0.24 264 / 0.18),
+    oklch(65% 0.2 264 / 0.28)
+  );
+
+  /* ── Glass / Blur ───────────────────────────────────────── */
+  --glass-bg: light-dark(oklch(100% 0 0 / 0.72), oklch(18% 0.006 264 / 0.72));
+  --glass-bg-thick: light-dark(
+    oklch(100% 0 0 / 0.85),
+    oklch(18% 0.006 264 / 0.85)
+  );
+  --glass-border: light-dark(
+    oklch(100% 0 0 / 0.5),
+    oklch(100% 0 0 / 0.08)
+  );
+
+  /* ── Focus Ring ─────────────────────────────────────────── */
+  --focus-ring: light-dark(
+    oklch(59% 0.24 264 / 0.5),
+    oklch(65% 0.2 264 / 0.6)
+  );
+
+  /* ── Accent color for native controls ───────────────────── */
+  accent-color: var(--color-system-blue);
+}
+
+/* ============================================================
+   Base Reset & Global Styles
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+  font-family: var(--font-sans);
+  background-color: var(--surface-grouped);
+  color: var(--text-primary);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  line-height: 1.5;
+}
+
+/* ── Focus Styles ─────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+
+:root {
+  scrollbar-color: light-dark(oklch(75% 0 0 / 0.4), oklch(50% 0 0 / 0.4))
+    transparent;
+  scrollbar-width: thin;
+}
+
+/* ── Selection ────────────────────────────────────────────── */
+
+::selection {
+  background-color: oklch(59% 0.24 264 / 0.25);
+}
+
+/* ── Reduced Motion ───────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   CDK Dialog / Overlay Styles
+   ============================================================ */
+
+.cdk-overlay-container {
+  position: fixed;
+  z-index: 9998;
+  pointer-events: none;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.cdk-global-overlay-wrapper {
+  display: flex;
+  position: absolute;
+  z-index: 9998;
+  overflow: auto;
+  pointer-events: auto;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-modal-backdrop {
+  background-color: oklch(0% 0 0 / 0.4);
+  backdrop-filter: blur(4px);
+  position: fixed;
+  inset: 0;
+}
+
+.app-modal-panel {
+  animation: modal-in 0.3s ease-out;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@media (max-width: 767px) {
+  .cdk-global-overlay-wrapper {
+    align-items: flex-end;
+  }
+  .app-modal-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    animation: sheet-up 0.35s ease-out;
+  }
+  .app-modal-panel .rounded-2xl {
+    border-radius: 20px 20px 0 0;
+  }
+  @keyframes sheet-up {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

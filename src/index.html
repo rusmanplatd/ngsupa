@@ -2,9 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Ngsupa</title>
+  <title>NgSupa — Modern Angular App</title>
   <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="A modern Angular application with Apple-inspired UI, Supabase authentication, and Firebase Cloud Messaging.">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    {
+      const cs = localStorage.getItem('ngsupa-color-scheme');
+      if (cs) {
+        document.querySelector('meta[name="color-scheme"]').content = cs;
+      }
+    }
+  </script>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 <body>
