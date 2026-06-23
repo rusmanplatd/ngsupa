@@ -1,7 +1,7 @@
 import { Component, inject, input, output, TemplateRef, signal } from '@angular/core';
 import { Dialog, DialogRef, DialogModule } from '@angular/cdk/dialog';
 import { Service } from '@angular/core';
-import { IconComponent } from '../icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 import { ButtonComponent } from '../button/button';
 
 @Service()
@@ -27,7 +27,7 @@ export class ModalService {
 
 @Component({
   selector: 'app-modal',
-  imports: [IconComponent],
+  imports: [LucideDynamicIcon],
   host: {
     class: 'block',
     role: 'dialog',
@@ -46,7 +46,7 @@ export class ModalService {
           aria-label="Close"
           (click)="closed.emit()"
         >
-          <app-icon name="x" [size]="16" />
+          <svg lucideIcon="x" [size]="16" />
         </button>
       </div>
 

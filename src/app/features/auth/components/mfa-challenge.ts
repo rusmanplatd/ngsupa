@@ -3,16 +3,16 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { AuthState } from '../../../core/state/auth.state';
 import { ButtonComponent } from '../../../shared/ui/button/button';
-import { IconComponent } from '../../../shared/ui/icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-mfa-challenge',
-  imports: [ButtonComponent, IconComponent],
+  imports: [ButtonComponent, LucideDynamicIcon],
   template: `
     <div class="space-y-6">
       <div class="text-center">
         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-system-blue-light">
-          <app-icon name="shield" [size]="24" class="text-system-blue" />
+          <svg lucideIcon="shield" [size]="24" class="text-system-blue" />
         </div>
         <h2 class="mt-4 text-xl font-bold text-[var(--text-primary)]">Two-Factor Authentication</h2>
         <p class="mt-1 text-sm text-[var(--text-secondary)]">

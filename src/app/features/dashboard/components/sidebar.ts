@@ -4,7 +4,7 @@ import { AuthState } from '../../../core/state/auth.state';
 import { AuthService } from '../../../core/services/auth.service';
 import { UiState } from '../../../core/state/ui.state';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar';
-import { IconComponent } from '../../../shared/ui/icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 interface NavItem {
   icon: string;
@@ -14,7 +14,7 @@ interface NavItem {
 
 @Component({
   selector: 'app-sidebar',
-  imports: [RouterLink, AvatarComponent, IconComponent],
+  imports: [RouterLink, AvatarComponent, LucideDynamicIcon],
   template: `
     <aside class="flex h-full w-64 flex-col bg-[var(--glass-bg-thick)] backdrop-blur-xl border-r border-[var(--separator)]">
       <!-- Logo -->
@@ -35,7 +35,7 @@ interface NavItem {
               ? 'bg-[var(--interactive-tint)] text-system-blue'
               : 'text-[var(--text-secondary)] hover:bg-[var(--fill-primary)] hover:text-[var(--text-primary)]'"
           >
-            <app-icon [name]="item.icon" [size]="20" />
+            <svg [lucideIcon]="item.icon" [size]="20" />
             {{ item.label }}
           </a>
         }
@@ -63,7 +63,7 @@ interface NavItem {
             aria-label="Sign out"
             (click)="onSignOut()"
           >
-            <app-icon name="log-out" [size]="18" />
+            <svg lucideIcon="log-out" [size]="18" />
           </button>
         </div>
       </div>

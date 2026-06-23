@@ -5,17 +5,17 @@ import { AuthState } from '../../../core/state/auth.state';
 import { InputComponent } from '../../../shared/ui/input/input';
 import { ButtonComponent } from '../../../shared/ui/button/button';
 import { SsoButtonsComponent } from '../components/sso-buttons';
-import { IconComponent } from '../../../shared/ui/icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-sign-up',
-  imports: [RouterLink, InputComponent, ButtonComponent, SsoButtonsComponent, IconComponent],
+  imports: [RouterLink, InputComponent, ButtonComponent, SsoButtonsComponent, LucideDynamicIcon],
   template: `
     @if (signUpComplete()) {
       <!-- Email Verification Notice -->
       <div class="space-y-6 text-center">
         <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-system-green-light">
-          <app-icon name="mail" [size]="28" class="text-system-green" />
+          <svg lucideIcon="mail" [size]="28" class="text-system-green" />
         </div>
         <div>
           <h2 class="text-xl font-bold text-[var(--text-primary)]">Check Your Email</h2>

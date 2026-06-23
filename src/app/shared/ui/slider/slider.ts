@@ -1,0 +1,178 @@
+import { Component, input, model, computed, signal, viewChild, ElementRef, afterRenderEffect } from '@angular/core';
+
+@Component({
+  selector: 'app-slider',
+  host: {
+    class: 'block',
+    '[attr.aria-label]': 'label() || ariaLabel()',
+  },
+  template: `
+    @if (label() || showValue()) {
+      <div class="flex items-center justify-between mb-2">
+        @if (label()) {
+          <label [for]="inputId()" class="text-sm font-medium text-[var(--text-primary)]">
+            {{ label() }}
+          </label>
+        }
+        @if (showValue()) {
+          <span class="text-sm font-semibold tabular-nums text-system-blue min-w-[3ch] text-right">
+            {{ displayValue() }}
+          </span>
+        }
+      </div>
+    }
+
+    <div class="relative flex items-center gap-3">
+      @if (minLabel()) {
+        <span class="shrink-0 text-xs text-[var(--text-tertiary)]">{{ minLabel() }}</span>
+      }
+      <div class="relative flex-1">
+        <input
+          #sliderEl
+          type="range"
+          [id]="inputId()"
+          [min]="min()"
+          [max]="max()"
+          [step]="step()"
+          [value]="value()"
+          [disabled]="disabled()"
+          (input)="onInput($event)"
+          class="slider-input w-full"
+          [attr.aria-valuemin]="min()"
+          [attr.aria-valuemax]="max()"
+          [attr.aria-valuenow]="value()"
+          [attr.aria-valuetext]="displayValue()"
+        />
+      </div>
+      @if (maxLabel()) {
+        <span class="shrink-0 text-xs text-[var(--text-tertiary)]">{{ maxLabel() }}</span>
+      }
+    </div>
+  `,
+  styles: `
+    .slider-input {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 9999px;
+      outline: none;
+      cursor: pointer;
+      background: linear-gradient(
+        to right,
+        var(--color-system-blue) 0%,
+        var(--color-system-blue) var(--fill-pct, 0%),
+        var(--fill-secondary, oklch(0% 0 0 / 0.06)) var(--fill-pct, 0%),
+        var(--fill-secondary, oklch(0% 0 0 / 0.06)) 100%
+      );
+      transition: opacity var(--duration-fast);
+    }
+
+    .slider-input:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Webkit thumb */
+    .slider-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%);
+      box-shadow:
+        0 1px 4px oklch(0% 0 0 / 0.18),
+        0 1px 2px oklch(0% 0 0 / 0.08),
+        inset 0 1px 0 oklch(100% 0 0 / 0.5);
+      border: 0.5px solid oklch(0% 0 0 / 0.04);
+      cursor: pointer;
+      transition:
+        transform var(--duration-fast) var(--ease-spring),
+        box-shadow var(--duration-fast);
+    }
+
+    .slider-input::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+      box-shadow:
+        0 2px 8px oklch(0% 0 0 / 0.22),
+        0 1px 3px oklch(0% 0 0 / 0.1),
+        inset 0 1px 0 oklch(100% 0 0 / 0.5);
+    }
+
+    .slider-input::-webkit-slider-thumb:active {
+      transform: scale(0.95);
+      box-shadow:
+        0 1px 4px oklch(0% 0 0 / 0.18),
+        0 1px 2px oklch(0% 0 0 / 0.08),
+        0 0 0 4px oklch(59% 0.24 264 / 0.15),
+        inset 0 1px 0 oklch(100% 0 0 / 0.5);
+    }
+
+    /* Firefox thumb */
+    .slider-input::-moz-range-thumb {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%);
+      box-shadow:
+        0 1px 4px oklch(0% 0 0 / 0.18),
+        0 1px 2px oklch(0% 0 0 / 0.08),
+        inset 0 1px 0 oklch(100% 0 0 / 0.5);
+      border: 0.5px solid oklch(0% 0 0 / 0.04);
+      cursor: pointer;
+    }
+
+    .slider-input::-moz-range-track {
+      height: 6px;
+      border-radius: 9999px;
+      background: transparent;
+    }
+
+    /* Unfilled track styling */
+    .slider-input::-moz-range-progress {
+      height: 6px;
+      border-radius: 9999px;
+      background: var(--color-system-blue);
+    }
+  `,
+})
+export class SliderComponent {
+  readonly value = model(0);
+  readonly min = input(0);
+  readonly max = input(100);
+  readonly step = input(1);
+  readonly label = input<string | null>(null);
+  readonly ariaLabel = input<string | null>(null);
+  readonly minLabel = input<string | null>(null);
+  readonly maxLabel = input<string | null>(null);
+  readonly showValue = input(false);
+  readonly disabled = input(false);
+  readonly suffix = input('');
+  readonly inputId = input('slider-' + Math.random().toString(36).slice(2, 9));
+
+  private readonly sliderElRef = viewChild<ElementRef<HTMLInputElement>>('sliderEl');
+
+  protected readonly displayValue = computed(() => {
+    const v = this.value();
+    return this.suffix() ? `${v}${this.suffix()}` : `${v}`;
+  });
+
+  constructor() {
+    afterRenderEffect(() => {
+      this.updateFillPercentage();
+    });
+  }
+
+  protected onInput(event: Event): void {
+    const val = Number((event.target as HTMLInputElement).value);
+    this.value.set(val);
+    this.updateFillPercentage();
+  }
+
+  private updateFillPercentage(): void {
+    const el = this.sliderElRef()?.nativeElement;
+    if (!el) return;
+    const pct = ((this.value() - this.min()) / (this.max() - this.min())) * 100;
+    el.style.setProperty('--fill-pct', `${pct}%`);
+  }
+}

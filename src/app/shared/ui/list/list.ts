@@ -1,5 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import { IconComponent } from '../icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-list',
@@ -28,7 +28,7 @@ export class ListComponent {
 
 @Component({
   selector: 'app-list-item',
-  imports: [IconComponent],
+  imports: [LucideDynamicIcon],
   host: {
     class: 'block',
     role: 'listitem',
@@ -48,7 +48,7 @@ export class ListComponent {
             ? 'bg-system-red-light text-system-red'
             : 'bg-[var(--fill-secondary)] text-[var(--text-secondary)]'"
         >
-          <app-icon [name]="leadingIcon()!" [size]="18" />
+          <svg [lucideIcon]="leadingIcon()!" [size]="18" />
         </span>
       }
       <span class="flex-1 min-w-0">
@@ -61,7 +61,7 @@ export class ListComponent {
         <span class="shrink-0 text-sm text-[var(--text-tertiary)]">{{ trailing() }}</span>
       }
       @if (showChevron()) {
-        <app-icon name="chevron-right" [size]="16" class="shrink-0 text-[var(--text-quaternary)]" />
+        <svg lucideIcon="chevron-right" [size]="16" class="shrink-0 text-[var(--text-quaternary)]" />
       }
       <ng-content />
     </button>

@@ -6,7 +6,7 @@ import { NavBarComponent } from '../../../shared/ui/nav-bar/nav-bar';
 import { TabBarComponent, Tab } from '../../../shared/ui/tab-bar/tab-bar';
 import { CardComponent } from '../../../shared/ui/card/card';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar';
-import { IconComponent } from '../../../shared/ui/icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 import { SidebarComponent } from '../components/sidebar';
 
 @Component({
@@ -16,7 +16,7 @@ import { SidebarComponent } from '../components/sidebar';
     TabBarComponent,
     CardComponent,
     AvatarComponent,
-    IconComponent,
+    LucideDynamicIcon,
     SidebarComponent,
   ],
   template: `
@@ -35,7 +35,7 @@ import { SidebarComponent } from '../components/sidebar';
               class="rounded-md p-1 text-system-blue"
               aria-label="Menu"
             >
-              <app-icon name="menu" [size]="22" />
+              <svg lucideIcon="menu" [size]="22" />
             </button>
           }
           <div nav-trailing>
@@ -75,7 +75,7 @@ import { SidebarComponent } from '../components/sidebar';
             <app-card variant="elevated">
               <div class="flex items-center gap-3">
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-system-blue-light">
-                  <app-icon name="bar-chart" [size]="20" class="text-system-blue" />
+                  <svg lucideIcon="bar-chart" [size]="20" class="text-system-blue" />
                 </div>
                 <div>
                   <p class="text-2xl font-bold text-[var(--text-primary)]">128</p>
@@ -88,7 +88,7 @@ import { SidebarComponent } from '../components/sidebar';
             <app-card variant="elevated">
               <div class="flex items-center gap-3">
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-system-green-light">
-                  <app-icon name="activity" [size]="20" class="text-system-green" />
+                  <svg lucideIcon="activity" [size]="20" class="text-system-green" />
                 </div>
                 <div>
                   <p class="text-2xl font-bold text-[var(--text-primary)]">3</p>
@@ -104,7 +104,7 @@ import { SidebarComponent } from '../components/sidebar';
                 @for (item of recentActivity; track item.time) {
                   <div class="flex items-center gap-3">
                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--fill-secondary)]">
-                      <app-icon [name]="item.icon" [size]="14" class="text-[var(--text-secondary)]" />
+                      <svg [lucideIcon]="item.icon" [size]="14" class="text-[var(--text-secondary)]" />
                     </div>
                     <div class="flex-1 min-w-0">
                       <p class="text-sm text-[var(--text-primary)] truncate">{{ item.text }}</p>
@@ -120,7 +120,7 @@ import { SidebarComponent } from '../components/sidebar';
               <h3 class="mb-3 text-sm font-semibold text-[var(--text-primary)]">Notifications</h3>
               <div class="flex items-center gap-3">
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-system-orange-light">
-                  <app-icon name="bell" [size]="20" class="text-system-orange" />
+                  <svg lucideIcon="bell" [size]="20" class="text-system-orange" />
                 </div>
                 <div>
                   <p class="text-sm text-[var(--text-primary)]">Push notifications</p>
@@ -138,7 +138,7 @@ import { SidebarComponent } from '../components/sidebar';
                     ? 'bg-system-green-light'
                     : 'bg-system-orange-light'"
                 >
-                  <app-icon name="shield" [size]="20"
+                  <svg lucideIcon="shield" [size]="20"
                     [class]="authState.hasMfa()
                       ? 'text-system-green'
                       : 'text-system-orange'"

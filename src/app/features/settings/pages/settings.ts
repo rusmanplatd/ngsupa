@@ -13,7 +13,7 @@ import { ToggleComponent } from '../../../shared/ui/toggle/toggle';
 import { ButtonComponent } from '../../../shared/ui/button/button';
 import { InputComponent } from '../../../shared/ui/input/input';
 import { CardComponent } from '../../../shared/ui/card/card';
-import { IconComponent } from '../../../shared/ui/icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 import { SidebarComponent } from '../../dashboard/components/sidebar';
 import { TabBarComponent, Tab } from '../../../shared/ui/tab-bar/tab-bar';
 import { ToastService } from '../../../shared/ui/toast/toast';
@@ -29,7 +29,7 @@ import { ToastService } from '../../../shared/ui/toast/toast';
     ButtonComponent,
     InputComponent,
     CardComponent,
-    IconComponent,
+    LucideDynamicIcon,
     SidebarComponent,
     TabBarComponent,
     TitleCasePipe,
@@ -44,7 +44,7 @@ import { ToastService } from '../../../shared/ui/toast/toast';
         <app-nav-bar title="Settings">
           @if (uiState.isMobile()) {
             <button nav-leading type="button" class="rounded-md p-1 text-system-blue" aria-label="Back" (click)="router.navigate(['/dashboard'])">
-              <app-icon name="arrow-left" [size]="22" />
+              <svg lucideIcon="arrow-left" [size]="22" />
             </button>
           }
         </app-nav-bar>
@@ -58,7 +58,7 @@ import { ToastService } from '../../../shared/ui/toast/toast';
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-system-purple-light">
-                    <app-icon [name]="themeState.isDark() ? 'moon' : 'sun'" [size]="20" class="text-system-purple" />
+                    <svg [lucideIcon]="themeState.isDark() ? 'moon' : 'sun'" [size]="20" class="text-system-purple" />
                   </div>
                   <div>
                     <p class="text-sm font-medium text-[var(--text-primary)]">Theme</p>
@@ -81,7 +81,7 @@ import { ToastService } from '../../../shared/ui/toast/toast';
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-system-orange-light">
-                    <app-icon name="bell" [size]="20" class="text-system-orange" />
+                    <svg lucideIcon="bell" [size]="20" class="text-system-orange" />
                   </div>
                   <div>
                     <p class="text-sm font-medium text-[var(--text-primary)]">Push Notifications</p>

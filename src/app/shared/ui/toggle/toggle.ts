@@ -15,12 +15,14 @@ import { Component, model, input, computed } from '@angular/core';
   },
   template: `
     <span
-      class="relative inline-flex shrink-0 rounded-full transition-colors duration-normal ease-out"
+      class="toggle-track relative inline-flex shrink-0 rounded-full transition-all duration-normal"
       [class]="trackClasses()"
+      [style.box-shadow]="trackShadow()"
     >
       <span
-        class="inline-block rounded-full bg-white shadow-sm transition-transform duration-normal ease-out"
+        class="toggle-thumb inline-block rounded-full bg-white transition-all duration-normal"
         [class]="thumbClasses()"
+        [style.box-shadow]="'0 1px 3px oklch(0% 0 0 / 0.15), 0 1px 2px oklch(0% 0 0 / 0.06), 0 0 0 0.5px oklch(0% 0 0 / 0.04)'"
       ></span>
     </span>
     @if (label()) {
@@ -32,6 +34,24 @@ import { Component, model, input, computed } from '@angular/core';
       opacity: 0.4;
       cursor: not-allowed;
       pointer-events: none;
+    }
+
+    :host:active .toggle-track {
+      /* Squish effect: make track slightly wider during press */
+      transform: scaleX(1.04) scaleY(0.96);
+    }
+
+    :host:active .toggle-thumb {
+      /* Thumb gets wider during drag (Apple's squish effect) */
+      width: 30px !important;
+    }
+
+    .toggle-track {
+      transition-timing-function: var(--ease-spring);
+    }
+
+    .toggle-thumb {
+      transition-timing-function: var(--ease-spring);
     }
   `,
 })
@@ -46,6 +66,12 @@ export class ToggleComponent {
     return on
       ? 'bg-system-blue w-[51px] h-[31px] p-[2px]'
       : 'bg-[var(--fill-secondary)] w-[51px] h-[31px] p-[2px]';
+  });
+
+  protected readonly trackShadow = computed(() => {
+    return this.checked()
+      ? 'none'
+      : 'var(--form-toggle-inset)';
   });
 
   protected readonly thumbClasses = computed(() => {

@@ -4,16 +4,16 @@ import { AuthService } from '../../../core/services/auth.service';
 import { AuthState } from '../../../core/state/auth.state';
 import { InputComponent } from '../../../shared/ui/input/input';
 import { ButtonComponent } from '../../../shared/ui/button/button';
-import { IconComponent } from '../../../shared/ui/icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-forgot-password',
-  imports: [RouterLink, InputComponent, ButtonComponent, IconComponent],
+  imports: [RouterLink, InputComponent, ButtonComponent, LucideDynamicIcon],
   template: `
     @if (sent()) {
       <div class="space-y-6 text-center">
         <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-system-blue-light">
-          <app-icon name="mail" [size]="28" class="text-system-blue" />
+          <svg lucideIcon="mail" [size]="28" class="text-system-blue" />
         </div>
         <div>
           <h2 class="text-xl font-bold text-[var(--text-primary)]">Check Your Email</h2>

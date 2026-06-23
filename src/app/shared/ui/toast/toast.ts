@@ -1,5 +1,5 @@
 import { Component, inject, signal, computed, Service } from '@angular/core';
-import { IconComponent } from '../icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 export type ToastVariant = 'info' | 'success' | 'warning' | 'error';
 
@@ -48,7 +48,7 @@ export class ToastService {
 
 @Component({
   selector: 'app-toast-container',
-  imports: [IconComponent],
+  imports: [LucideDynamicIcon],
   host: {
     class: 'fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 pointer-events-none',
     'aria-live': 'polite',
@@ -61,7 +61,7 @@ export class ToastService {
         [class]="variantClasses(toast.variant)"
         role="alert"
       >
-        <app-icon [name]="variantIcon(toast.variant)" [size]="18" class="shrink-0" />
+        <svg [lucideIcon]="variantIcon(toast.variant)" [size]="18" class="shrink-0" />
         <span class="flex-1 text-sm font-medium">{{ toast.message }}</span>
         <button
           type="button"
@@ -69,7 +69,7 @@ export class ToastService {
           aria-label="Dismiss notification"
           (click)="toastService.dismiss(toast.id)"
         >
-          <app-icon name="x" [size]="14" />
+          <svg lucideIcon="x" [size]="14" />
         </button>
       </div>
     }

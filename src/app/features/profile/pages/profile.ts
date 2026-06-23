@@ -10,7 +10,7 @@ import { AvatarComponent } from '../../../shared/ui/avatar/avatar';
 import { ButtonComponent } from '../../../shared/ui/button/button';
 import { InputComponent } from '../../../shared/ui/input/input';
 import { ListComponent, ListItemComponent } from '../../../shared/ui/list/list';
-import { IconComponent } from '../../../shared/ui/icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 import { SidebarComponent } from '../../dashboard/components/sidebar';
 import { TabBarComponent, Tab } from '../../../shared/ui/tab-bar/tab-bar';
 import { ToastService } from '../../../shared/ui/toast/toast';
@@ -26,7 +26,7 @@ import type { MfaEnrollment } from '../../../core/models/auth.models';
     InputComponent,
     ListComponent,
     ListItemComponent,
-    IconComponent,
+    LucideDynamicIcon,
     SidebarComponent,
     TabBarComponent,
   ],
@@ -40,7 +40,7 @@ import type { MfaEnrollment } from '../../../core/models/auth.models';
         <app-nav-bar title="Profile">
           @if (uiState.isMobile()) {
             <button nav-leading type="button" class="rounded-md p-1 text-system-blue" aria-label="Back" (click)="router.navigate(['/dashboard'])">
-              <app-icon name="arrow-left" [size]="22" />
+              <svg lucideIcon="arrow-left" [size]="22" />
             </button>
           }
         </app-nav-bar>
@@ -61,7 +61,7 @@ import type { MfaEnrollment } from '../../../core/models/auth.models';
                   <p class="text-sm text-[var(--text-secondary)]">{{ authState.email() }}</p>
                 </div>
                 <button appButton variant="tinted" (click)="startEditing()">
-                  <app-icon name="edit" [size]="16" />
+                  <svg lucideIcon="edit" [size]="16" />
                   Edit Profile
                 </button>
               } @else {

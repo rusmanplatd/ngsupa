@@ -1,0 +1,561 @@
+/* ============================================================
+   Tree Component — Apple HIG Styles
+   ============================================================ */
+
+/* ── Host ────────────────────────────────────────────────────── */
+
+:host {
+  display: block;
+  --tree-indent: 24px;
+  --tree-row-height: 36px;
+  --tree-icon-size: 18px;
+}
+
+/* CDK applies paddingLeft to cdk-tree-node — needs block display */
+cdk-tree-node {
+  display: block;
+}
+
+/* ── Search Bar ──────────────────────────────────────────────── */
+
+.tree-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  background: var(--form-field-glass);
+  box-shadow: var(--form-field-shadow);
+  transition: all var(--duration-normal) var(--ease-default);
+}
+
+.tree-search:focus-within {
+  border-color: var(--color-system-blue);
+  background: var(--surface-primary);
+  box-shadow: var(--form-field-shadow), var(--form-control-glow);
+}
+
+.tree-search-icon {
+  margin-left: 12px;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.tree-search:focus-within .tree-search-icon {
+  color: var(--color-system-blue);
+}
+
+.tree-search-input {
+  flex: 1;
+  width: 100%;
+  padding: 8px 12px 8px 8px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font: var(--type-footnote);
+  color: var(--text-primary);
+}
+
+.tree-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.tree-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--fill-secondary);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+  animation: clear-btn-in 0.15s var(--ease-default);
+}
+
+.tree-search-clear:hover {
+  background: var(--text-quaternary);
+  color: var(--text-secondary);
+}
+
+.tree-search-clear:active {
+  transform: scale(0.9);
+}
+
+/* ── Tree Container ──────────────────────────────────────────── */
+
+.tree-container {
+  position: relative;
+  border-radius: var(--radius-xl);
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  overflow: hidden;
+}
+
+/* ── Tree Node Row ───────────────────────────────────────────── */
+
+.tree-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tree-row-height);
+  padding-right: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    opacity var(--duration-fast) var(--ease-default);
+}
+
+.tree-node:hover {
+  background: var(--fill-primary);
+}
+
+.tree-node:active {
+  background: var(--fill-secondary);
+}
+
+.tree-node--selected {
+  background: var(--interactive-tint);
+}
+
+.tree-node--selected:hover {
+  background: var(--interactive-tint-hover);
+}
+
+.tree-node--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.tree-node--editing {
+  background: var(--fill-primary);
+}
+
+/* ── Separator between nodes ─────────────────────────────────── */
+
+.tree-node-separator {
+  height: 1px;
+  background: var(--separator);
+  margin-left: var(--tree-indent);
+}
+
+/* ── Drag Handle ─────────────────────────────────────────────── */
+
+.tree-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--text-quaternary);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-default);
+  touch-action: none;
+}
+
+.tree-node:hover .tree-drag-handle {
+  opacity: 1;
+}
+
+.tree-drag-handle:active {
+  cursor: grabbing;
+  color: var(--text-tertiary);
+}
+
+/* ── Expand / Collapse Toggle ────────────────────────────────── */
+
+.tree-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+  padding: 0;
+}
+
+.tree-toggle:hover {
+  background: var(--fill-secondary);
+  color: var(--text-secondary);
+}
+
+.tree-toggle-icon {
+  transition: transform var(--duration-normal) var(--ease-spring);
+  transform: rotate(0deg);
+}
+
+.tree-toggle--expanded .tree-toggle-icon {
+  transform: rotate(90deg);
+}
+
+.tree-toggle--leaf {
+  visibility: hidden;
+}
+
+/* ── Node Icon ───────────────────────────────────────────────── */
+
+.tree-node-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-system-blue);
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.tree-node-icon--folder {
+  color: var(--color-system-yellow);
+}
+
+/* ── Node Label ──────────────────────────────────────────────── */
+
+.tree-node-label {
+  flex: 1;
+  min-width: 0;
+  font: var(--type-footnote);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Search Highlight ────────────────────────────────────────── */
+
+.tree-highlight {
+  background: oklch(82% 0.16 85 / 0.35);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tree-highlight {
+    background: oklch(70% 0.18 55 / 0.35);
+  }
+}
+
+/* ── Node Badge ──────────────────────────────────────────────── */
+
+.tree-node-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--fill-secondary);
+  font: var(--type-caption-2);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ── Inline Edit Input ───────────────────────────────────────── */
+
+.tree-edit-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--color-system-blue);
+  background: var(--surface-primary);
+  font: var(--type-footnote);
+  font-weight: 500;
+  color: var(--text-primary);
+  outline: none;
+  box-shadow: var(--form-control-glow);
+  animation: scale-in 0.12s var(--ease-default);
+}
+
+/* ── Children Container (animated expand/collapse) ───────────── */
+
+.tree-children {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-normal) var(--ease-default);
+  overflow: hidden;
+}
+
+.tree-children > div {
+  overflow: hidden;
+}
+
+.tree-children--expanded {
+  grid-template-rows: 1fr;
+}
+
+/* ── Connecting Lines ────────────────────────────────────────── */
+
+.tree-lines .tree-children-inner {
+  position: relative;
+}
+
+.tree-lines .tree-children-inner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 12px;
+  left: calc(var(--tree-indent) * var(--level, 0) + 23px);
+  width: 1px;
+  background: var(--separator);
+  pointer-events: none;
+}
+
+/* ── CDK Drag & Drop ─────────────────────────────────────────── */
+
+/* Drag preview */
+.tree-drag-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-thick);
+  backdrop-filter: blur(var(--blur-lg));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
+  font: var(--type-footnote);
+  font-weight: 500;
+  color: var(--text-primary);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.tree-drag-preview-icon {
+  flex-shrink: 0;
+  color: var(--color-system-blue);
+}
+
+/* Drop placeholder */
+.tree-drop-placeholder {
+  height: 2px;
+  margin: 0 12px;
+  border-radius: 1px;
+  background: var(--color-system-blue);
+  box-shadow: 0 0 6px oklch(59% 0.24 264 / 0.4);
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+/* While dragging — fade sibling nodes slightly */
+.cdk-drop-list-dragging .tree-node:not(.cdk-drag-placeholder) {
+  transition: transform var(--duration-normal) var(--ease-default);
+}
+
+.cdk-drag-animating {
+  transition: transform var(--duration-normal) var(--ease-default);
+}
+
+/* ── CDK Context Menu (Apple HIG) ────────────────────────────── */
+
+.tree-context-menu {
+  min-width: 200px;
+  max-width: 280px;
+  padding: 4px;
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-thick);
+  backdrop-filter: blur(var(--blur-xl));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-xl);
+  animation: scale-in 0.12s var(--ease-default);
+  overflow: hidden;
+}
+
+.tree-context-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  font: var(--type-footnote);
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+}
+
+.tree-context-item:hover,
+.tree-context-item:focus-visible {
+  background: var(--color-system-blue);
+  color: var(--text-on-fill);
+}
+
+.tree-context-item:hover svg,
+.tree-context-item:focus-visible svg {
+  color: var(--text-on-fill);
+}
+
+.tree-context-item svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.tree-context-item--destructive {
+  color: var(--color-system-red);
+}
+
+.tree-context-item--destructive svg {
+  color: var(--color-system-red);
+}
+
+.tree-context-item--destructive:hover,
+.tree-context-item--destructive:focus-visible {
+  background: var(--color-system-red);
+  color: var(--text-on-fill);
+}
+
+.tree-context-item--destructive:hover svg,
+.tree-context-item--destructive:focus-visible svg {
+  color: var(--text-on-fill);
+}
+
+.tree-context-item-label {
+  flex: 1;
+  text-align: left;
+}
+
+.tree-context-item-shortcut {
+  flex-shrink: 0;
+  font: var(--type-caption-2);
+  color: var(--text-quaternary);
+  margin-left: auto;
+}
+
+.tree-context-item:hover .tree-context-item-shortcut,
+.tree-context-item:focus-visible .tree-context-item-shortcut {
+  color: oklch(100% 0 0 / 0.6);
+}
+
+.tree-context-separator {
+  height: 1px;
+  margin: 4px 8px;
+  border: none;
+  background: var(--separator);
+}
+
+/* ── Checkbox Area ───────────────────────────────────────────── */
+
+.tree-checkbox {
+  flex-shrink: 0;
+}
+
+/* ── Empty State ─────────────────────────────────────────────── */
+
+.tree-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.tree-empty-icon {
+  color: var(--text-quaternary);
+  margin-bottom: 12px;
+}
+
+.tree-empty-title {
+  font: var(--type-headline);
+  color: var(--text-secondary);
+}
+
+.tree-empty-description {
+  font: var(--type-caption-1);
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────── */
+
+.tree-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.tree-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.tree-toolbar-btn:hover {
+  background: var(--fill-primary);
+  color: var(--text-primary);
+}
+
+.tree-toolbar-btn:active {
+  background: var(--fill-secondary);
+  transform: scale(0.92);
+}
+
+.tree-toolbar-spacer {
+  flex: 1;
+}
+
+.tree-toolbar-count {
+  font: var(--type-caption-1);
+  color: var(--text-tertiary);
+  padding-right: 4px;
+}
+
+/* ── Focus override for tree items ───────────────────────────── */
+
+.tree-node:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Live region (screen reader only) ────────────────────────── */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

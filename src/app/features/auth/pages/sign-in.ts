@@ -6,7 +6,7 @@ import { InputComponent } from '../../../shared/ui/input/input';
 import { ButtonComponent } from '../../../shared/ui/button/button';
 import { SsoButtonsComponent } from '../components/sso-buttons';
 import { MfaChallengeComponent } from '../components/mfa-challenge';
-import { IconComponent } from '../../../shared/ui/icon/icon';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-sign-in',
@@ -16,7 +16,7 @@ import { IconComponent } from '../../../shared/ui/icon/icon';
     ButtonComponent,
     SsoButtonsComponent,
     MfaChallengeComponent,
-    IconComponent,
+    LucideDynamicIcon,
   ],
   template: `
     @if (authState.needsMfa()) {
@@ -85,7 +85,7 @@ import { IconComponent } from '../../../shared/ui/icon/icon';
           class="w-full"
           (click)="onPasskeySignIn()"
         >
-          <app-icon name="fingerprint" [size]="18" />
+          <svg lucideIcon="fingerprint" [size]="18" />
           Sign in with Passkey
         </button>
 
