@@ -22,6 +22,7 @@ import { ChipComponent } from '../../shared/ui/chip/chip';
 import { SelectComponent, SelectOption, SelectGroup } from '../../shared/ui/select/select';
 import { DropdownComponent, DropdownOption, DropdownGroup } from '../../shared/ui/dropdown/dropdown';
 import { ProgressComponent } from '../../shared/ui/progress/progress';
+import { SidenavItem } from '../../shared/ui/sidenav/sidenav';
 // import { DateDisplayComponent } from '../../shared/ui/date-display/date-display';
 
 import { SliderComponent } from '../../shared/ui/slider/slider';
@@ -46,6 +47,7 @@ import { DatePickerComponent, DateRange } from '../../shared/ui/date-picker/date
 import { TimePickerComponent, TimeValue, TimeRange } from '../../shared/ui/time-picker/time-picker';
 import { TabBarComponent, Tab } from '../../shared/ui/tab-bar/tab-bar';
 import { CarouselComponent, CarouselSlideDirective } from '../../shared/ui/carousel/carousel';
+import { SidenavComponent, SidenavItemComponent, SidenavGroupComponent } from '../../shared/ui/sidenav/sidenav';
 import { TreeComponent, type TreeNode, type TreeNodeEditEvent, type TreeContextMenuEvent } from '../../shared/ui/tree/tree';
 import { ListboxComponent, ListboxOptionComponent } from '../../shared/ui/listbox/listbox';
 import { PaginatorComponent } from '../../shared/ui/paginator/paginator';
@@ -107,6 +109,9 @@ import {
     TabsComponent,
     DataTableComponent,
     DataTableCellDirective,
+    SidenavComponent,
+    SidenavItemComponent,
+    SidenavGroupComponent,
   ],
   template: `
     <app-toast-container />
@@ -1234,6 +1239,210 @@ import {
       <app-divider />
 
       <!-- ═══════════════════════════════════════════════════
+           Section: Sidenav
+           ═══════════════════════════════════════════════════ -->
+      <section id="sidenav" class="mb-16 mt-16">
+        <h2 class="section-title">Sidenav</h2>
+        <p class="text-xs text-[var(--text-secondary)] mb-6">Sidebar navigation with glass, solid, and floating variants. Features collapse/expand, groups, badges, and active state indicator.</p>
+        <div class="space-y-10">
+
+          <!-- Variants -->
+          <div>
+            <h3 class="subsection-label">Variants</h3>
+            <div class="grid gap-6 md:grid-cols-3">
+
+              <!-- Glass -->
+              <div class="space-y-2">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Glass</p>
+                <div class="sidenav-preview">
+                  <div class="sidenav-preview__frame">
+                    <app-sidenav variant="glass" [showCollapseButton]="false" [mobileBreakpoint]="0" width="100%">
+                      <div sidenav-header class="sidenav-preview__logo">
+                        <svg lucideIcon="hexagon" [size]="22" class="text-system-blue" />
+                        <span class="text-sm font-semibold text-[var(--text-primary)]">Acme App</span>
+                      </div>
+                      <app-sidenav-group>
+                        @for (item of sidenavDemoItems; track item.id) {
+                          <app-sidenav-item
+                            [icon]="item.icon"
+                            [label]="item.label"
+                            [active]="item.id === sidenavGlassActive()"
+                            [badge]="item.badge"
+                            (itemClick)="sidenavGlassActive.set(item.id)"
+                          />
+                        }
+                      </app-sidenav-group>
+                    </app-sidenav>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Solid -->
+              <div class="space-y-2">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Solid</p>
+                <div class="sidenav-preview">
+                  <div class="sidenav-preview__frame">
+                    <app-sidenav variant="solid" [showCollapseButton]="false" [mobileBreakpoint]="0" width="100%">
+                      <div sidenav-header class="sidenav-preview__logo">
+                        <svg lucideIcon="hexagon" [size]="22" class="text-system-blue" />
+                        <span class="text-sm font-semibold text-[var(--text-primary)]">Acme App</span>
+                      </div>
+                      <app-sidenav-group>
+                        @for (item of sidenavDemoItems; track item.id) {
+                          <app-sidenav-item
+                            [icon]="item.icon"
+                            [label]="item.label"
+                            [active]="item.id === sidenavSolidActive()"
+                            [badge]="item.badge"
+                            (itemClick)="sidenavSolidActive.set(item.id)"
+                          />
+                        }
+                      </app-sidenav-group>
+                    </app-sidenav>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Floating -->
+              <div class="space-y-2">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Floating</p>
+                <div class="sidenav-preview sidenav-preview--padded">
+                  <div class="sidenav-preview__frame">
+                    <app-sidenav variant="floating" [showCollapseButton]="false" [mobileBreakpoint]="0" width="calc(100% - 24px)">
+                      <div sidenav-header class="sidenav-preview__logo">
+                        <svg lucideIcon="hexagon" [size]="22" class="text-system-blue" />
+                        <span class="text-sm font-semibold text-[var(--text-primary)]">Acme App</span>
+                      </div>
+                      <app-sidenav-group>
+                        @for (item of sidenavDemoItems; track item.id) {
+                          <app-sidenav-item
+                            [icon]="item.icon"
+                            [label]="item.label"
+                            [active]="item.id === sidenavFloatingActive()"
+                            [badge]="item.badge"
+                            (itemClick)="sidenavFloatingActive.set(item.id)"
+                          />
+                        }
+                      </app-sidenav-group>
+                    </app-sidenav>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Collapsible -->
+          <div>
+            <h3 class="subsection-label">Collapsible</h3>
+            <p class="text-xs text-[var(--text-secondary)] mb-4">Click the toggle button or press the collapse button on the side to collapse/expand.</p>
+            <div class="flex items-start gap-4">
+              <div class="sidenav-preview sidenav-preview--wide">
+                <div class="sidenav-preview__frame sidenav-preview__frame--row">
+                  <app-sidenav
+                    variant="solid"
+                    [(collapsed)]="sidenavCollapsed"
+                    [showCollapseButton]="true"
+                    [mobileBreakpoint]="0"
+                    width="220px"
+                    collapsedWidth="64px"
+                  >
+                    <div sidenav-header class="sidenav-preview__logo">
+                      <svg lucideIcon="hexagon" [size]="22" class="text-system-blue" />
+                      @if (!sidenavCollapsed()) {
+                        <span class="text-sm font-semibold text-[var(--text-primary)]">Workspace</span>
+                      }
+                    </div>
+                    <app-sidenav-group>
+                      @for (item of sidenavDemoItems; track item.id) {
+                        <app-sidenav-item
+                          [icon]="item.icon"
+                          [label]="item.label"
+                          [active]="item.id === sidenavCollapsibleActive()"
+                          [badge]="item.badge"
+                          [collapsed]="sidenavCollapsed()"
+                          (itemClick)="sidenavCollapsibleActive.set(item.id)"
+                        />
+                      }
+                    </app-sidenav-group>
+                  </app-sidenav>
+                  <div class="sidenav-preview__content-area">
+                    <svg lucideIcon="layout" [size]="28" class="text-[var(--text-quaternary)]" />
+                    <span class="text-xs text-[var(--text-tertiary)]">{{ sidenavCollapsed() ? 'Collapsed' : 'Expanded' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- With Groups -->
+          <div>
+            <h3 class="subsection-label">With Groups</h3>
+            <div class="grid gap-6 md:grid-cols-2">
+
+              <!-- Grouped -->
+              <div class="space-y-2">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Grouped Items</p>
+                <div class="sidenav-preview">
+                  <div class="sidenav-preview__frame">
+                    <app-sidenav variant="solid" [showCollapseButton]="false" [mobileBreakpoint]="0" width="100%">
+                      <div sidenav-header class="sidenav-preview__logo">
+                        <svg lucideIcon="hexagon" [size]="22" class="text-system-blue" />
+                        <span class="text-sm font-semibold text-[var(--text-primary)]">Dashboard</span>
+                      </div>
+                      <app-sidenav-group label="Main">
+                        <app-sidenav-item icon="home" label="Home" [active]="sidenavGroupActive() === 'home'" (itemClick)="sidenavGroupActive.set('home')" />
+                        <app-sidenav-item icon="inbox" label="Inbox" [badge]="4" [active]="sidenavGroupActive() === 'inbox'" (itemClick)="sidenavGroupActive.set('inbox')" />
+                        <app-sidenav-item icon="calendar" label="Calendar" [active]="sidenavGroupActive() === 'calendar'" (itemClick)="sidenavGroupActive.set('calendar')" />
+                      </app-sidenav-group>
+                      <app-sidenav-group label="Workspace">
+                        <app-sidenav-item icon="folder" label="Projects" [active]="sidenavGroupActive() === 'projects'" (itemClick)="sidenavGroupActive.set('projects')" />
+                        <app-sidenav-item icon="users" label="Team" [active]="sidenavGroupActive() === 'team'" (itemClick)="sidenavGroupActive.set('team')" />
+                        <app-sidenav-item icon="bar-chart-2" label="Analytics" [active]="sidenavGroupActive() === 'analytics'" (itemClick)="sidenavGroupActive.set('analytics')" />
+                      </app-sidenav-group>
+                      <app-sidenav-group label="Account">
+                        <app-sidenav-item icon="settings" label="Settings" [active]="sidenavGroupActive() === 'settings'" (itemClick)="sidenavGroupActive.set('settings')" />
+                        <app-sidenav-item icon="log-out" label="Sign Out" [disabled]="false" (itemClick)="toastService.info('Signed out')" />
+                      </app-sidenav-group>
+                    </app-sidenav>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Collapsible Groups -->
+              <div class="space-y-2">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Collapsible Groups</p>
+                <div class="sidenav-preview">
+                  <div class="sidenav-preview__frame">
+                    <app-sidenav variant="glass" [showCollapseButton]="false" [mobileBreakpoint]="0" width="100%">
+                      <div sidenav-header class="sidenav-preview__logo">
+                        <svg lucideIcon="command" [size]="22" class="text-system-blue" />
+                        <span class="text-sm font-semibold text-[var(--text-primary)]">Admin</span>
+                      </div>
+                      <app-sidenav-group label="Navigation" [collapsible]="true">
+                        <app-sidenav-item icon="home" label="Dashboard" [active]="sidenavCollapsibleGroupActive() === 'dashboard'" (itemClick)="sidenavCollapsibleGroupActive.set('dashboard')" />
+                        <app-sidenav-item icon="file-text" label="Documents" [active]="sidenavCollapsibleGroupActive() === 'documents'" (itemClick)="sidenavCollapsibleGroupActive.set('documents')" />
+                        <app-sidenav-item icon="image" label="Media" [badge]="12" [active]="sidenavCollapsibleGroupActive() === 'media'" (itemClick)="sidenavCollapsibleGroupActive.set('media')" />
+                      </app-sidenav-group>
+                      <app-sidenav-group label="Settings" [collapsible]="true">
+                        <app-sidenav-item icon="user" label="Profile" [active]="sidenavCollapsibleGroupActive() === 'profile'" (itemClick)="sidenavCollapsibleGroupActive.set('profile')" />
+                        <app-sidenav-item icon="shield" label="Security" [active]="sidenavCollapsibleGroupActive() === 'security'" (itemClick)="sidenavCollapsibleGroupActive.set('security')" />
+                        <app-sidenav-item icon="bell" label="Notifications" [active]="sidenavCollapsibleGroupActive() === 'notifications'" (itemClick)="sidenavCollapsibleGroupActive.set('notifications')" />
+                      </app-sidenav-group>
+                    </app-sidenav>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <app-divider />
+
+      <!-- ═══════════════════════════════════════════════════
            Section: Content Tabs
            ═══════════════════════════════════════════════════ -->
       <section id="content-tabs" class="mb-16 mt-16">
@@ -1612,16 +1821,37 @@ import {
           <!-- Context Menu -->
           <div>
             <h3 class="subsection-label">Context Menu</h3>
-            <app-card variant="outlined" [interactive]="true">
-              <div
-                class="flex items-center justify-center gap-2 py-6 text-sm text-[var(--text-secondary)] cursor-context-menu select-none"
-                (contextmenu)="onContextMenu($event)"
-              >
-                <svg lucideIcon="menu" [size]="16" />
-                Right-click here for context menu
+            <p class="text-xs text-[var(--text-tertiary)] mb-3">
+              Right-click or press the button · Use <kbd class="font-mono">↑↓</kbd> to navigate ·
+              <kbd class="font-mono">Enter</kbd>/<kbd class="font-mono">Space</kbd> to select ·
+              <kbd class="font-mono">Home</kbd>/<kbd class="font-mono">End</kbd> to jump ·
+              Type a letter to jump by name
+            </p>
+            <div class="flex flex-col gap-3">
+              <app-card variant="outlined" [interactive]="true">
+                <div
+                  class="flex items-center justify-center gap-2 py-6 text-sm text-[var(--text-secondary)] cursor-context-menu select-none"
+                  (contextmenu)="onContextMenu($event)"
+                >
+                  <svg lucideIcon="mouse-pointer-2" [size]="16" />
+                  Right-click anywhere in this area
+                </div>
+              </app-card>
+              <div class="flex items-center gap-2">
+                <button
+                  appButton
+                  variant="gray"
+                  id="ctx-menu-btn-trigger"
+                  (click)="onContextMenuButton($event)"
+                >
+                  <svg lucideIcon="more-horizontal" [size]="16" />
+                  Open via button
+                </button>
+                <span class="text-xs text-[var(--text-tertiary)]">Focus is restored to this button on close</span>
               </div>
-            </app-card>
+            </div>
           </div>
+
 
           <!-- Popover -->
           <div>
@@ -1752,20 +1982,62 @@ import {
               <app-tree
                 [data]="fileTreeData"
                 [expandAllOnInit]="true"
+                [selectionMode]="'none'"
                 (nodeClick)="toastService.info('Clicked: ' + $event.label)"
               />
             </div>
           </div>
 
-          <!-- Selectable Tree -->
+          <!-- Single Selection -->
           <div>
-            <h3 class="subsection-label">Selectable with Tri-state</h3>
+            <h3 class="subsection-label">Single Selection</h3>
+            <p class="text-xs text-[var(--text-tertiary)] mb-2">Click a node to select it · Click again to deselect</p>
+            <div class="max-w-lg">
+              <app-tree
+                [data]="fileTreeData"
+                [expandAllOnInit]="true"
+                selectionMode="single"
+                (selectionChange)="treeSelectedLabel.set($event[0]?.label ?? '')"
+              />
+            </div>
+            @if (treeSelectedLabel()) {
+              <p class="mt-2 text-xs text-[var(--text-tertiary)]">
+                Selected: <strong class="text-[var(--text-primary)]">{{ treeSelectedLabel() }}</strong>
+              </p>
+            }
+          </div>
+
+          <!-- Multi Selection -->
+          <div>
+            <h3 class="subsection-label">Multi Selection</h3>
+            <p class="text-xs text-[var(--text-tertiary)] mb-2">
+              Click to select · <kbd class="font-mono">Ctrl</kbd>+click to toggle · <kbd class="font-mono">Shift</kbd>+click to range-select
+            </p>
+            <div class="max-w-lg">
+              <app-tree
+                [data]="fileTreeData"
+                [expandAllOnInit]="true"
+                selectionMode="multiple"
+                (selectionChange)="treeMultiSelectedLabels.set($event.map(n => n.label))"
+              />
+            </div>
+            @if (treeMultiSelectedLabels().length > 0) {
+              <p class="mt-2 text-xs text-[var(--text-tertiary)]">
+                Selected: <strong class="text-[var(--text-primary)]">{{ treeMultiSelectedLabels().join(', ') }}</strong>
+              </p>
+            }
+          </div>
+
+          <!-- Checkbox Tri-state -->
+          <div>
+            <h3 class="subsection-label">Checkbox Tri-state Selection</h3>
             <div class="max-w-lg">
               <app-tree
                 [data]="fileTreeData"
                 [selectable]="true"
+                [selectionMode]="'none'"
                 [expandAllOnInit]="true"
-                (selectionChange)="toastService.info('Selected: ' + $event.length + ' items')"
+                (selectionChange)="toastService.info('Checked: ' + $event.length + ' items')"
               />
             </div>
           </div>
@@ -2278,6 +2550,55 @@ import {
       position: absolute !important;
       z-index: 1;
     }
+    /* ── Sidenav Preview ───────────────────────────────── */
+    .sidenav-preview {
+      border-radius: var(--radius-xl);
+      border: 1.5px solid var(--border-default);
+      overflow: hidden;
+      background: var(--surface-grouped);
+    }
+
+    .sidenav-preview--padded {
+      background: var(--surface-grouped);
+    }
+
+    .sidenav-preview--wide {
+      max-width: 480px;
+    }
+
+    .sidenav-preview__frame {
+      position: relative;
+      height: 340px;
+      overflow: hidden;
+    }
+
+    .sidenav-preview__frame--row {
+      display: flex;
+    }
+
+    .sidenav-preview__logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidenav-preview__content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* Override sidenav positioning inside preview frames */
+    .sidenav-preview ::ng-deep .sidenav {
+      position: relative !important;
+    }
+
+    .sidenav-preview ::ng-deep .sidenav--floating {
+      height: calc(100% - 24px) !important;
+    }
   `],
 })
 export class ShowcaseComponent {
@@ -2336,6 +2657,23 @@ export class ShowcaseComponent {
     { value: 'completed', label: 'Completed' },
   ];
   protected readonly segmentValue = signal('all');
+
+  // --- Sidenav state ---
+  protected readonly sidenavGlassActive = signal('home');
+  protected readonly sidenavSolidActive = signal('home');
+  protected readonly sidenavFloatingActive = signal('home');
+  protected readonly sidenavCollapsed = signal(false);
+  protected readonly sidenavCollapsibleActive = signal('home');
+  protected readonly sidenavGroupActive = signal('home');
+  protected readonly sidenavCollapsibleGroupActive = signal('dashboard');
+
+  protected readonly sidenavDemoItems: SidenavItem[] = [
+    { id: 'home', label: 'Home', icon: 'home' },
+    { id: 'search', label: 'Search', icon: 'search' },
+    { id: 'messages', label: 'Messages', icon: 'message-circle', badge: 3 },
+    { id: 'analytics', label: 'Analytics', icon: 'bar-chart-2' },
+    { id: 'settings', label: 'Settings', icon: 'settings' },
+  ];
 
   // --- Data ---
   protected readonly sampleDate = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
@@ -2788,6 +3126,9 @@ export class ShowcaseComponent {
   ];
 
   // --- Tree data ---
+  protected readonly treeSelectedLabel = signal('');
+  protected readonly treeMultiSelectedLabels = signal<string[]>([]);
+
   protected readonly fileTreeData: TreeNode[] = [
     {
       id: 'src',
@@ -2981,21 +3322,69 @@ export class ShowcaseComponent {
   protected async onContextMenu(event: MouseEvent): Promise<void> {
     event.preventDefault();
     const items: ContextMenuItem[] = [
-      { id: 'cut', label: 'Cut', icon: 'copy', shortcut: '⌘X' },
-      { id: 'copy', label: 'Copy', icon: 'copy', shortcut: '⌘C' },
-      { id: 'paste', label: 'Paste', icon: 'copy', shortcut: '⌘V' },
-      { id: 'sep1', label: '', separator: true },
-      { id: 'select-all', label: 'Select All', shortcut: '⌘A' },
-      { id: 'sep2', label: '', separator: true },
-      { id: 'delete', label: 'Delete', icon: 'trash', destructive: true },
+      { id: 'cut',   label: 'Cut',   icon: 'scissors', shortcut: '⌘X' },
+      { id: 'copy',  label: 'Copy',  icon: 'copy',     shortcut: '⌘C' },
+      { id: 'paste', label: 'Paste', icon: 'clipboard', shortcut: '⌘V', disabled: true },
+      { id: 'sep-edit', label: 'Format', separator: true },
+      { id: 'bold',      label: 'Bold',      icon: 'bold',      shortcut: '⌘B' },
+      { id: 'italic',    label: 'Italic',    icon: 'italic',    shortcut: '⌘I' },
+      { id: 'underline', label: 'Underline', icon: 'underline', shortcut: '⌘U' },
+      {
+        id: 'share',
+        label: 'Share',
+        icon: 'share-2',
+        badge: 3,
+        children: [
+          { id: 'share-link',  label: 'Copy Link',      icon: 'link' },
+          { id: 'share-email', label: 'Send via Email', icon: 'mail' },
+          { id: 'share-slack', label: 'Share to Slack', icon: 'message-square' },
+        ],
+      },
+      { id: 'sep-danger', label: '', separator: true },
+      { id: 'delete', label: 'Delete', icon: 'trash-2', shortcut: '⌫', destructive: true },
     ];
-    const result = await this.contextMenuService.open(items, {
-      x: event.clientX,
-      y: event.clientY,
-    });
+    const result = await this.contextMenuService.open(
+      items,
+      { x: event.clientX, y: event.clientY },
+      event.target as Element,
+    );
+    if (result) {
+      this.toastService.info(`Context menu: ${result}`);
+    }
+  }
+
+  protected async onContextMenuButton(event: MouseEvent): Promise<void> {
+    const btn = event.currentTarget as HTMLElement;
+    const rect = btn.getBoundingClientRect();
+    const items: ContextMenuItem[] = [
+      { id: 'cut',   label: 'Cut',   icon: 'scissors', shortcut: '⌘X' },
+      { id: 'copy',  label: 'Copy',  icon: 'copy',     shortcut: '⌘C' },
+      { id: 'paste', label: 'Paste', icon: 'clipboard', shortcut: '⌘V', disabled: true },
+      { id: 'sep-edit', label: 'Format', separator: true },
+      { id: 'bold',      label: 'Bold',      icon: 'bold',      shortcut: '⌘B' },
+      { id: 'italic',    label: 'Italic',    icon: 'italic',    shortcut: '⌘I' },
+      { id: 'underline', label: 'Underline', icon: 'underline', shortcut: '⌘U' },
+      {
+        id: 'share',
+        label: 'Share',
+        icon: 'share-2',
+        badge: 3,
+        children: [
+          { id: 'share-link',  label: 'Copy Link',      icon: 'link' },
+          { id: 'share-email', label: 'Send via Email', icon: 'mail' },
+          { id: 'share-slack', label: 'Share to Slack', icon: 'message-square' },
+        ],
+      },
+      { id: 'sep-danger', label: '', separator: true },
+      { id: 'delete', label: 'Delete', icon: 'trash-2', shortcut: '⌫', destructive: true },
+    ];
+    const result = await this.contextMenuService.open(
+      items,
+      { x: rect.left, y: rect.bottom + 4 },
+      btn,
+    );
     if (result) {
       this.toastService.info(`Context menu: ${result}`);
     }
   }
 }
-

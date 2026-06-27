@@ -5,7 +5,6 @@ import {
   signal,
   computed,
   viewChild,
-  ElementRef,
   effect,
   type OnInit,
 } from '@angular/core';
@@ -143,8 +142,21 @@ export interface TreeContextMenuEvent {
         <div class="tree-toolbar-spacer"></div>
         @if (selectable() && checkedNodes().length > 0) {
           <span class="tree-toolbar-count">
-            {{ checkedNodes().length }} selected
+            {{ checkedNodes().length }} checked
           </span>
+        }
+        @if (selectionMode() !== 'none' && selectedIds().size > 0) {
+          <span class="tree-toolbar-count">
+            {{ selectedIds().size }} selected
+          </span>
+          <button
+            type="button"
+            class="tree-toolbar-btn"
+            aria-label="Clear selection"
+            (click)="clearSelection()"
+          >
+            <svg lucideIcon="x" [size]="14" />
+          </button>
         }
       </div>
 
@@ -154,6 +166,12 @@ export interface TreeContextMenuEvent {
           [dataSource]="filteredData()"
           [childrenAccessor]="childrenAccessor"
           [trackBy]="trackById"
+          role="tree"
+          [attr.aria-label]="'Tree'"
+          [attr.aria-multiselectable]="selectionMode() === 'multiple' || null"
+          [tabindex]="focusedNodeId() ? -1 : 0"
+          (keydown)="onTreeKeydown($event)"
+          (focus)="onTreeFocus($event)"
           #cdkTree
         >
           <cdk-tree-node
@@ -165,12 +183,21 @@ export interface TreeContextMenuEvent {
           >
             <div
               class="tree-node"
-              [class.tree-node--selected]="selectedNodeId() === node.id"
+              role="treeitem"
+              [attr.id]="'tree-node-' + node.id"
+              [attr.aria-selected]="selectionMode() !== 'none' ? isSelected(node) : null"
+              [attr.aria-expanded]="hasChildren(node) ? cdkTree.isExpanded(node) : null"
+              [attr.aria-disabled]="node.disabled || null"
+              [attr.aria-label]="node.label"
+              [tabindex]="focusedNodeId() === node.id ? 0 : -1"
+              [class.tree-node--selected]="isSelected(node)"
+              [class.tree-node--focused]="focusedNodeId() === node.id"
               [class.tree-node--disabled]="node.disabled"
               [class.tree-node--editing]="editingNodeId() === node.id"
               (click)="onNodeClick(node, $event)"
               (dblclick)="onNodeDblClick(node)"
-              (keydown.f2)="startEditing(node)"
+              (focus)="onNodeFocus(node)"
+              (keydown)="onNodeKeydown($event, node)"
               cdkDrag
               [cdkDragData]="node"
               [cdkDragDisabled]="!draggable() || !!node.disabled"
@@ -354,6 +381,7 @@ export class TreeComponent implements OnInit {
   readonly contextMenu = input(true);
   readonly searchable = input(false);
   readonly searchPlaceholder = input('Search…');
+  readonly selectionMode = input<'none' | 'single' | 'multiple'>('single');
 
   // ── Outputs ─────────────────────────────────────────────────
   readonly nodeClick = output<TreeNode>();
@@ -367,13 +395,19 @@ export class TreeComponent implements OnInit {
 
   // ── Internal State ──────────────────────────────────────────
   protected readonly searchQuery = signal('');
-  protected readonly selectedNodeId = signal<string | null>(null);
+  protected readonly selectedIds = signal<Set<string>>(new Set());
+  protected readonly lastSelectedId = signal<string | null>(null);
   protected readonly editingNodeId = signal<string | null>(null);
   protected readonly checkedIds = signal<Set<string>>(new Set());
   protected readonly liveAnnouncement = signal('');
+  protected readonly focusedNodeId = signal<string | null>(null);
 
   // IDs to force-expand for search
   private readonly forceExpandIds = signal<Set<string>>(new Set());
+
+  // Type-ahead state
+  private typeaheadBuffer = '';
+  private typeaheadTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── CDK childrenAccessor ────────────────────────────────────
   readonly childrenAccessor = (node: TreeNode): TreeNode[] =>
@@ -383,9 +417,23 @@ export class TreeComponent implements OnInit {
 
   // ── Computed ────────────────────────────────────────────────
 
-  /** Flat list of all checked nodes */
+  /** Flat list of all checked nodes (checkbox selection) */
   protected readonly checkedNodes = computed(() => {
     const ids = this.checkedIds();
+    const result: TreeNode[] = [];
+    const collect = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (ids.has(node.id)) result.push(node);
+        if (node.children) collect(node.children);
+      }
+    };
+    collect(this.data());
+    return result;
+  });
+
+  /** Flat list of all click-selected nodes */
+  protected readonly selectedNodes = computed(() => {
+    const ids = this.selectedIds();
     const result: TreeNode[] = [];
     const collect = (nodes: TreeNode[]) => {
       for (const node of nodes) {
@@ -461,6 +509,210 @@ export class TreeComponent implements OnInit {
     }
   }
 
+  // ── Keyboard Navigation Helpers ─────────────────────────────
+
+  /**
+   * Returns a flat, in-order list of all currently *visible* nodes
+   * (i.e. root nodes plus children of expanded parents).
+   */
+  private getVisibleNodes(): TreeNode[] {
+    const tree = this.cdkTree();
+    const result: TreeNode[] = [];
+
+    const walk = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        result.push(node);
+        if (node.children && node.children.length > 0 && tree?.isExpanded(node)) {
+          walk(node.children);
+        }
+      }
+    };
+    walk(this.filteredData());
+    return result;
+  }
+
+  /**
+   * Finds the direct parent of a given node in the data tree.
+   */
+  private findParent(nodeId: string, nodes: TreeNode[], parent: TreeNode | null = null): TreeNode | null {
+    for (const n of nodes) {
+      if (n.id === nodeId) return parent;
+      if (n.children) {
+        const found = this.findParent(nodeId, n.children, n);
+        if (found !== undefined) return found;
+      }
+    }
+    return undefined as unknown as TreeNode | null;
+  }
+
+  /** Focus a node by id — scrolls it into view */
+  private focusNode(node: TreeNode): void {
+    this.focusedNodeId.set(node.id);
+    this.liveAnnouncement.set(node.label);
+    queueMicrotask(() => {
+      const el = document.getElementById(`tree-node-${node.id}`);
+      el?.focus({ preventScroll: false });
+    });
+  }
+
+  // ── Tree-level keyboard handler (when tree wrapper has focus) ─
+
+  protected onTreeFocus(event: FocusEvent): void {
+    // If focus arrives on the tree wrapper itself (not a child), focus the
+    // previously focused node or the first visible node.
+    const target = event.target as HTMLElement;
+    if (target.getAttribute('role') === 'tree') {
+      const visible = this.getVisibleNodes();
+      if (visible.length === 0) return;
+      const current = this.focusedNodeId();
+      const node = visible.find((n) => n.id === current) ?? visible[0];
+      this.focusNode(node);
+    }
+  }
+
+  protected onTreeKeydown(event: KeyboardEvent): void {
+    // Handled per-node; this catches keys fired on the wrapper itself
+    const target = event.target as HTMLElement;
+    if (target.getAttribute('role') === 'tree') {
+      this.handleTreeKey(event);
+    }
+  }
+
+  // ── Per-node keyboard handler ────────────────────────────────
+
+  protected onNodeFocus(node: TreeNode): void {
+    this.focusedNodeId.set(node.id);
+  }
+
+  protected onNodeKeydown(event: KeyboardEvent, node: TreeNode): void {
+    this.handleTreeKey(event, node);
+  }
+
+  private handleTreeKey(event: KeyboardEvent, node?: TreeNode): void {
+    const tree = this.cdkTree();
+    if (!tree) return;
+
+    const visible = this.getVisibleNodes();
+    if (visible.length === 0) return;
+
+    const currentNode = node ?? visible.find((n) => n.id === this.focusedNodeId()) ?? visible[0];
+    const idx = visible.findIndex((n) => n.id === currentNode.id);
+
+    switch (event.key) {
+      case 'ArrowDown': {
+        event.preventDefault();
+        const next = visible[idx + 1];
+        if (next) this.focusNode(next);
+        break;
+      }
+
+      case 'ArrowUp': {
+        event.preventDefault();
+        const prev = visible[idx - 1];
+        if (prev) this.focusNode(prev);
+        break;
+      }
+
+      case 'ArrowRight': {
+        event.preventDefault();
+        if (this.hasChildren(currentNode)) {
+          if (!tree.isExpanded(currentNode)) {
+            tree.expand(currentNode);
+            this.liveAnnouncement.set(`${currentNode.label} expanded`);
+          } else {
+            // Move to first child
+            const firstChild = visible[idx + 1];
+            if (firstChild) this.focusNode(firstChild);
+          }
+        }
+        break;
+      }
+
+      case 'ArrowLeft': {
+        event.preventDefault();
+        if (this.hasChildren(currentNode) && tree.isExpanded(currentNode)) {
+          tree.collapse(currentNode);
+          this.liveAnnouncement.set(`${currentNode.label} collapsed`);
+        } else {
+          // Move to parent
+          const parent = this.findParent(currentNode.id, this.filteredData());
+          if (parent) this.focusNode(parent);
+        }
+        break;
+      }
+
+      case 'Home': {
+        event.preventDefault();
+        const first = visible[0];
+        if (first) this.focusNode(first);
+        break;
+      }
+
+      case 'End': {
+        event.preventDefault();
+        const last = visible[visible.length - 1];
+        if (last) this.focusNode(last);
+        break;
+      }
+
+      case 'Enter':
+      case ' ': {
+        event.preventDefault();
+        if (currentNode.disabled) break;
+        if (this.selectable()) {
+          this.toggleCheck(currentNode);
+        }
+        this.nodeClick.emit(currentNode);
+        this.selectNode(currentNode);
+        break;
+      }
+
+      case 'F2': {
+        event.preventDefault();
+        this.startEditing(currentNode);
+        break;
+      }
+
+      case '*': {
+        event.preventDefault();
+        // Expand all siblings (nodes at the same level)
+        const parent = this.findParent(currentNode.id, this.filteredData());
+        const siblings = parent ? (parent.children ?? []) : this.filteredData();
+        for (const sibling of siblings) {
+          if (this.hasChildren(sibling)) tree.expand(sibling);
+        }
+        this.liveAnnouncement.set('Siblings expanded');
+        break;
+      }
+
+      default: {
+        // Type-ahead: focus next node whose label starts with the typed character
+        if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+          event.preventDefault();
+          this.handleTypeahead(event.key, visible, idx);
+        }
+        break;
+      }
+    }
+  }
+
+  private handleTypeahead(char: string, visible: TreeNode[], currentIdx: number): void {
+    if (this.typeaheadTimer !== null) {
+      clearTimeout(this.typeaheadTimer);
+    }
+    this.typeaheadBuffer += char.toLowerCase();
+    this.typeaheadTimer = setTimeout(() => {
+      this.typeaheadBuffer = '';
+      this.typeaheadTimer = null;
+    }, 500);
+
+    const query = this.typeaheadBuffer;
+    // Search from node after current, then wrap around
+    const afterCurrent = [...visible.slice(currentIdx + 1), ...visible.slice(0, currentIdx + 1)];
+    const match = afterCurrent.find((n) => n.label.toLowerCase().startsWith(query));
+    if (match) this.focusNode(match);
+  }
+
   // ── Node Helpers ────────────────────────────────────────────
 
   protected hasChildren(node: TreeNode): boolean {
@@ -505,14 +757,91 @@ export class TreeComponent implements OnInit {
     const target = event.target as HTMLElement;
     if (target.closest('button, input, app-checkbox, .tree-drag-handle')) return;
 
-    this.selectedNodeId.set(node.id);
     this.nodeClick.emit(node);
+    this.selectNode(node, event as MouseEvent);
   }
 
   protected onNodeDblClick(node: TreeNode): void {
     if (this.editable() && !node.disabled) {
       this.startEditing(node);
     }
+  }
+
+  // ── Selection (click-based) ────────────────────────────────
+
+  protected isSelected(node: TreeNode): boolean {
+    return this.selectedIds().has(node.id);
+  }
+
+  /**
+   * Core selection logic — handles single, multiple (Ctrl/Shift) and none modes.
+   */
+  private selectNode(node: TreeNode, event?: MouseEvent): void {
+    const mode = this.selectionMode();
+    if (mode === 'none') return;
+
+    if (mode === 'single') {
+      // Toggle off if already the only selection, otherwise select
+      const alreadySelected = this.selectedIds().has(node.id) && this.selectedIds().size === 1;
+      this.selectedIds.set(alreadySelected ? new Set() : new Set([node.id]));
+      this.lastSelectedId.set(alreadySelected ? null : node.id);
+    } else {
+      // multiple mode
+      const isCtrl = event ? event.ctrlKey || event.metaKey : false;
+      const isShift = event ? event.shiftKey : false;
+
+      if (isShift && this.lastSelectedId()) {
+        // Range-select from anchor to this node
+        this.selectRange(this.lastSelectedId()!, node.id);
+      } else if (isCtrl) {
+        // Toggle this node while keeping others
+        this.selectedIds.update((ids) => {
+          const next = new Set(ids);
+          if (next.has(node.id)) {
+            next.delete(node.id);
+          } else {
+            next.add(node.id);
+            this.lastSelectedId.set(node.id);
+          }
+          return next;
+        });
+      } else {
+        // Plain click — select single (toggle off if only one selected)
+        const alreadyOnly = this.selectedIds().has(node.id) && this.selectedIds().size === 1;
+        this.selectedIds.set(alreadyOnly ? new Set() : new Set([node.id]));
+        this.lastSelectedId.set(alreadyOnly ? null : node.id);
+      }
+    }
+
+    this.selectionChange.emit(this.selectedNodes());
+  }
+
+  /**
+   * Selects all visible nodes between two node IDs (inclusive).
+   * Preserves existing selection outside the range.
+   */
+  private selectRange(fromId: string, toId: string): void {
+    const visible = this.getVisibleNodes();
+    const fromIdx = visible.findIndex((n) => n.id === fromId);
+    const toIdx = visible.findIndex((n) => n.id === toId);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const [start, end] = fromIdx <= toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+    this.selectedIds.update((ids) => {
+      const next = new Set(ids);
+      for (let i = start; i <= end; i++) {
+        next.add(visible[i].id);
+      }
+      return next;
+    });
+  }
+
+  /** Clears all click-based selected nodes. */
+  clearSelection(): void {
+    this.selectedIds.set(new Set());
+    this.lastSelectedId.set(null);
+    this.selectionChange.emit([]);
+    this.liveAnnouncement.set('Selection cleared');
   }
 
   // ── Expand / Collapse ───────────────────────────────────────

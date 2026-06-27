@@ -14,7 +14,6 @@ import { LucideDynamicIcon } from '@lucide/angular';
 import { SidebarComponent } from '../../dashboard/components/sidebar';
 import { TabBarComponent, Tab } from '../../../shared/ui/tab-bar/tab-bar';
 import { ToastService } from '../../../shared/ui/toast/toast';
-import type { MfaEnrollment } from '../../../core/models/auth.models';
 
 @Component({
   selector: 'app-profile',
@@ -32,9 +31,7 @@ import type { MfaEnrollment } from '../../../core/models/auth.models';
   ],
   template: `
     <div class="flex min-h-dvh bg-[var(--surface-grouped)]">
-      @if (uiState.showSidebar()) {
-        <app-sidebar />
-      }
+      <app-sidebar class="contents" />
 
       <div class="flex-1 flex flex-col min-w-0">
         <app-nav-bar title="Profile">
@@ -80,99 +77,6 @@ import type { MfaEnrollment } from '../../../core/models/auth.models';
               }
             </div>
           </app-card>
-
-          <!-- MFA Management -->
-          <app-list header="Two-Factor Authentication">
-            @if (authState.mfaFactors().length === 0) {
-              <app-list-item
-                label="Add Authenticator"
-                subtitle="Protect your account with TOTP"
-                leadingIcon="shield"
-                [showChevron]="true"
-                [last]="true"
-                (pressed)="onEnrollMfa()"
-              />
-            } @else {
-              @for (factor of authState.mfaFactors(); track factor.id; let last = $last) {
-                <app-list-item
-                  [label]="factor.friendly_name || 'Authenticator'"
-                  [subtitle]="'Status: ' + factor.status"
-                  leadingIcon="shield"
-                  [last]="last && authState.mfaFactors().length > 0"
-                >
-                  @if (factor.status === 'verified') {
-                    <button
-                      type="button"
-                      class="shrink-0 text-xs text-system-red hover:underline"
-                      (click)="$event.stopPropagation(); onUnenrollMfa(factor.id)"
-                    >
-                      Remove
-                    </button>
-                  }
-                </app-list-item>
-              }
-              <app-list-item
-                label="Add Another"
-                leadingIcon="plus"
-                [last]="true"
-                (pressed)="onEnrollMfa()"
-              />
-            }
-          </app-list>
-
-          <!-- MFA Enrollment QR -->
-          @if (mfaEnrollment()) {
-            <app-card variant="elevated">
-              <div class="space-y-4 text-center">
-                <h3 class="text-lg font-semibold text-[var(--text-primary)]">Scan QR Code</h3>
-                <p class="text-sm text-[var(--text-secondary)]">
-                  Scan this QR code with your authenticator app
-                </p>
-                <div class="mx-auto w-48 h-48 bg-white rounded-xl p-2 flex items-center justify-center">
-                  <img [src]="mfaEnrollment()!.qrCode" alt="MFA QR Code" class="w-full h-full" />
-                </div>
-                <div class="space-y-1">
-                  <p class="text-xs text-[var(--text-tertiary)]">Or enter this key manually:</p>
-                  <code class="block rounded-lg bg-[var(--fill-secondary)] px-3 py-2 text-xs font-mono text-[var(--text-primary)] break-all">
-                    {{ mfaEnrollment()!.secret }}
-                  </code>
-                </div>
-                <div class="flex justify-center gap-2">
-                  <button appButton variant="filled" (click)="onVerifyMfaEnrollment()">
-                    I've scanned it
-                  </button>
-                  <button appButton variant="plain" (click)="mfaEnrollment.set(null)">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </app-card>
-          }
-
-          <!-- MFA Verify Code -->
-          @if (verifyingMfa()) {
-            <app-card variant="elevated">
-              <div class="space-y-4">
-                <h3 class="text-lg font-semibold text-[var(--text-primary)] text-center">Enter Verification Code</h3>
-                <app-input
-                  label="6-digit code"
-                  type="text"
-                  [inputId]="'mfa-verify-code'"
-                  [value]="mfaCode()"
-                  (valueChange)="mfaCode.set($event)"
-                />
-                @if (authState.error(); as err) {
-                  <p class="text-sm text-system-red text-center" role="alert">{{ err.message }}</p>
-                }
-                <div class="flex justify-center gap-2">
-                  <button appButton variant="filled" [loading]="authState.loading()" (click)="onConfirmMfa()">
-                    Verify
-                  </button>
-                  <button appButton variant="plain" (click)="cancelMfaVerify()">Cancel</button>
-                </div>
-              </div>
-            </app-card>
-          }
 
           <!-- Passkeys Management -->
           <app-list header="Passkeys">
@@ -230,10 +134,6 @@ export class ProfileComponent {
 
   protected readonly editing = signal(false);
   protected readonly editName = signal('');
-  protected readonly mfaEnrollment = signal<MfaEnrollment | null>(null);
-  protected readonly verifyingMfa = signal(false);
-  protected readonly mfaCode = signal('');
-  protected readonly pendingFactorId = signal<string | null>(null);
 
   protected activeTab = 'profile';
   protected readonly tabs: Tab[] = [
@@ -260,55 +160,6 @@ export class ProfileComponent {
       this.toastService.success('Profile updated');
     } catch {
       this.toastService.error('Failed to update profile');
-    }
-  }
-
-  protected async onEnrollMfa(): Promise<void> {
-    const enrollment = await this.authService.enrollMfa('My Authenticator');
-    if (enrollment) {
-      this.mfaEnrollment.set(enrollment);
-    }
-  }
-
-  protected onVerifyMfaEnrollment(): void {
-    if (this.mfaEnrollment()) {
-      this.pendingFactorId.set(this.mfaEnrollment()!.factorId);
-      this.mfaEnrollment.set(null);
-      this.verifyingMfa.set(true);
-    }
-  }
-
-  protected async onConfirmMfa(): Promise<void> {
-    const factorId = this.pendingFactorId();
-    if (!factorId || this.mfaCode().length !== 6) return;
-
-    const challenge = await this.authService.challengeMfa(factorId);
-    if (!challenge) return;
-
-    const success = await this.authService.verifyMfa(
-      challenge.factorId,
-      challenge.challengeId,
-      this.mfaCode()
-    );
-
-    if (success) {
-      this.verifyingMfa.set(false);
-      this.mfaCode.set('');
-      this.pendingFactorId.set(null);
-      this.toastService.success('Two-factor authentication enabled');
-    }
-  }
-
-  protected cancelMfaVerify(): void {
-    this.verifyingMfa.set(false);
-    this.mfaCode.set('');
-    this.pendingFactorId.set(null);
-  }
-
-  protected async onUnenrollMfa(factorId: string): Promise<void> {
-    const success = await this.authService.unenrollMfa(factorId);
-    if (success) {
-      this.toastService.success('Authenticator removed');
     }
   }
 

@@ -16,15 +16,13 @@ export class AuthService {
   private readonly supabase = inject(SupabaseService);
   private readonly authState = inject(AuthState);
 
-  constructor() {
-    this.setupAuthListener();
-  }
+  constructor() {}
 
   // ═══════════════════════════════════════════════════════════
   // Initialization
   // ═══════════════════════════════════════════════════════════
 
-  /** Restore session on app startup */
+  /** Restore session on app startup, then start listening for future changes */
   async initialize(): Promise<void> {
     try {
       const { data, error } = await this.supabase.client.auth.getSession();
@@ -38,12 +36,17 @@ export class AuthService {
       // Silent failure on init — user just isn't logged in
     } finally {
       this.authState.setInitialized(true);
+      // Set up listener AFTER init so it never overwrites state during startup
+      this.setupAuthListener();
     }
   }
 
-  /** Listen for auth state changes (OAuth callbacks, token refresh, etc.) */
+  /** Listen for auth state changes (sign-in, sign-out, token refresh, etc.) */
   private setupAuthListener(): void {
     this.supabase.client.auth.onAuthStateChange(async (event, session) => {
+      // Skip INITIAL_SESSION — already handled by getSession() above
+      if (event === 'INITIAL_SESSION') return;
+
       this.authState.setSession(session);
       this.authState.setUser(session?.user ?? null);
 
@@ -312,6 +315,16 @@ export class AuthService {
     const factors = data.totp || [];
     this.authState.setMfaFactors(factors);
     return factors;
+  }
+
+  /**
+   * Returns ALL enrolled factors (any type) — used for cleanup before
+   * re-enrollment, since Supabase enforces name uniqueness across all types.
+   */
+  async listAllMfaFactors() {
+    const { data, error } = await this.supabase.client.auth.mfa.listFactors();
+    if (error || !data) return [];
+    return (data.all || []) as Array<{ id: string; status: string; friendly_name?: string }>;
   }
 
   private async loadMfaFactors(): Promise<void> {

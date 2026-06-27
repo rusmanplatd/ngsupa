@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { guestGuard } from '../../core/guards/guest.guard';
+import { mfaPageGuard } from '../../core/guards/mfa-page.guard';
 import { AuthLayoutComponent } from './pages/auth-layout';
 
 export const authRoutes: Routes = [
@@ -31,4 +32,11 @@ export const authRoutes: Routes = [
     loadComponent: () =>
       import('./pages/auth-callback').then((m) => m.AuthCallbackComponent),
   },
+  {
+    path: 'mfa',
+    canActivate: [mfaPageGuard],
+    loadComponent: () =>
+      import('./pages/mfa-verify').then((m) => m.MfaVerifyComponent),
+  },
 ];
+

@@ -8,6 +8,7 @@ export class UiState {
 
   private readonly _sidebarOpen = signal(true);
   private readonly _isMobile = signal(this.checkMobile());
+  readonly sidebarCollapsed = signal(false);
 
   readonly sidebarOpen = this._sidebarOpen.asReadonly();
   readonly isMobile = this._isMobile.asReadonly();

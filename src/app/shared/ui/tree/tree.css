@@ -540,10 +540,20 @@ cdk-tree-node {
 
 /* ── Focus override for tree items ───────────────────────────── */
 
-.tree-node:focus-visible {
+.tree-node:focus-visible,
+.tree-node--focused:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
   border-radius: var(--radius-sm);
+}
+
+/* Keyboard-focus indicator (roving tabindex) */
+.tree-node--focused {
+  background: var(--fill-primary);
+}
+
+.tree-node--focused.tree-node--selected {
+  background: var(--interactive-tint-hover);
 }
 
 /* ── Live region (screen reader only) ────────────────────────── */

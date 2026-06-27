@@ -11,13 +11,9 @@ export type CardVariant = 'default' | 'elevated' | 'outlined' | 'flush';
   },
   template: `
     <ng-content select="[card-header]" />
-    @if (variant() !== 'flush' && padding() !== 'none') {
-      <div [class]="paddingClass()">
-        <ng-content />
-      </div>
-    } @else {
+    <div [class]="paddingClass()">
       <ng-content />
-    }
+    </div>
     <ng-content select="[card-footer]" />
   `,
   styles: `
@@ -48,6 +44,7 @@ export class CardComponent {
   readonly padding = input<'none' | 'sm' | 'md' | 'lg'>('md');
 
   protected readonly paddingClass = computed(() => {
+    if (this.variant() === 'flush' || this.padding() === 'none') return '';
     const padMap = { none: '', sm: 'p-3', md: 'p-5', lg: 'p-6' };
     return padMap[this.padding()];
   });

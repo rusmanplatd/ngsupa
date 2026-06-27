@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthState } from '../../../core/state/auth.state';
 import { UiState } from '../../../core/state/ui.state';
@@ -21,10 +21,11 @@ import { SidebarComponent } from '../components/sidebar';
   ],
   template: `
     <div class="flex min-h-dvh bg-[var(--surface-grouped)]">
-      <!-- Sidebar (desktop) -->
-      @if (uiState.showSidebar()) {
-        <app-sidebar />
-      }
+      <!-- Sidebar: always in DOM so viewChild is available; SidenavComponent handles its own mobile overlay -->
+      <app-sidebar
+        #sidebarRef
+        class="contents"
+      />
 
       <!-- Main content area -->
       <div class="flex-1 flex flex-col min-w-0">
@@ -33,7 +34,8 @@ import { SidebarComponent } from '../components/sidebar';
             <button nav-leading
               type="button"
               class="rounded-md p-1 text-system-blue"
-              aria-label="Menu"
+              aria-label="Open navigation menu"
+              (click)="sidebar().openMobile()"
             >
               <svg lucideIcon="menu" [size]="22" />
             </button>
@@ -47,7 +49,29 @@ import { SidebarComponent } from '../components/sidebar';
           </div>
         </app-nav-bar>
 
-        <main class="flex-1 px-5 pb-24 md:pb-8">
+        <main class="flex-1 px-5 pb-24 md:pb-8 space-y-4">
+
+          <!-- MFA setup banner — shown only when 2FA is NOT enrolled -->
+          @if (!authState.hasMfa()) {
+            <button
+              type="button"
+              class="w-full text-left rounded-2xl border border-system-orange/30 bg-system-orange-light p-4 flex items-center gap-4 hover:border-system-orange/60 transition-colors group"
+              (click)="router.navigate(['/settings'])"
+              aria-label="Set up two-factor authentication"
+            >
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-system-orange/15">
+                <svg lucideIcon="shield-alert" [size]="20" class="text-system-orange" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-system-orange">Secure your account with 2FA</p>
+                <p class="text-xs text-system-orange/80 mt-0.5">
+                  Two-factor authentication is not enabled. Go to Settings → Security to set it up.
+                </p>
+              </div>
+              <svg lucideIcon="chevron-right" [size]="18" class="text-system-orange/60 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          }
+
           <!-- Widgets Grid -->
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
 
@@ -129,34 +153,44 @@ import { SidebarComponent } from '../components/sidebar';
               </div>
             </app-card>
 
-            <!-- Security Status -->
-            <app-card>
-              <h3 class="mb-3 text-sm font-semibold text-[var(--text-primary)]">Security</h3>
-              <div class="flex items-center gap-3">
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl"
-                  [class]="authState.hasMfa()
-                    ? 'bg-system-green-light'
-                    : 'bg-system-orange-light'"
-                >
-                  <svg lucideIcon="shield" [size]="20"
+            <!-- Security Status — clickable, navigates to Settings -->
+            <button
+              type="button"
+              class="text-left"
+              (click)="router.navigate(['/settings'])"
+              aria-label="Go to security settings"
+            >
+              <app-card>
+                <h3 class="mb-3 text-sm font-semibold text-[var(--text-primary)]">Security</h3>
+                <div class="flex items-center gap-3">
+                  <div class="flex h-10 w-10 items-center justify-center rounded-xl"
                     [class]="authState.hasMfa()
-                      ? 'text-system-green'
-                      : 'text-system-orange'"
-                  />
+                      ? 'bg-system-green-light'
+                      : 'bg-system-orange-light'"
+                  >
+                    <svg [lucideIcon]="authState.hasMfa() ? 'shield-check' : 'shield-alert'" [size]="20"
+                      [class]="authState.hasMfa()
+                        ? 'text-system-green'
+                        : 'text-system-orange'"
+                    />
+                  </div>
+                  <div>
+                    <p class="text-sm text-[var(--text-primary)]">
+                      {{ authState.hasMfa() ? 'MFA Enabled' : 'MFA Not Set Up' }}
+                    </p>
+                    <p class="text-xs"
+                      [class]="authState.hasMfa() ? 'text-[var(--text-tertiary)]' : 'text-system-orange'"
+                    >
+                      {{ authState.hasMfa() ? 'Your account is protected' : 'Tap to set up 2FA →' }}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p class="text-sm text-[var(--text-primary)]">
-                    {{ authState.hasMfa() ? 'MFA Enabled' : 'MFA Not Set Up' }}
-                  </p>
-                  <p class="text-xs text-[var(--text-tertiary)]">
-                    {{ authState.hasMfa() ? 'Your account is protected' : 'Add extra security' }}
-                  </p>
-                </div>
-              </div>
-            </app-card>
+              </app-card>
+            </button>
 
           </div>
         </main>
+
       </div>
     </div>
 
@@ -173,7 +207,9 @@ import { SidebarComponent } from '../components/sidebar';
 export class DashboardComponent {
   protected readonly authState = inject(AuthState);
   protected readonly uiState = inject(UiState);
-  private readonly router = inject(Router);
+  protected readonly router = inject(Router);
+
+  protected readonly sidebar = viewChild.required<SidebarComponent>('sidebarRef');
 
   protected activeTab = 'dashboard';
 
