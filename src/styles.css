@@ -6,8 +6,8 @@
 
 @theme {
   /* ── Typography Scale (Apple HIG) ────────────────────────── */
-  --font-sans: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue',
-    system-ui, sans-serif;
+  --font-sans: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Inter',
+    'Helvetica Neue', system-ui, sans-serif;
   --font-mono: 'SF Mono', ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
 
   --text-2xs: 0.625rem;   /* 10px — caption 2 */
