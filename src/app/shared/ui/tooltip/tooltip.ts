@@ -17,7 +17,7 @@ import { ComponentPortal } from '@angular/cdk/portal';
     class: 'block pointer-events-none animate-tooltip-in',
   },
   template: `
-    <div class="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white shadow-lg max-w-[240px]">
+    <div class="rounded-lg bg-[var(--surface-elevated)] border border-[var(--border-default)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-md max-w-[240px]">
       {{ text }}
     </div>
   `,

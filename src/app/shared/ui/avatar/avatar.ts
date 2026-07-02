@@ -89,7 +89,7 @@ export class AvatarComponent {
   protected readonly statusClasses = computed(() => {
     switch (this.status()) {
       case 'online': return 'bg-system-green';
-      case 'offline': return 'bg-gray-400';
+      case 'offline': return 'bg-[var(--text-tertiary)]';
       case 'away': return 'bg-system-orange';
       default: return '';
     }

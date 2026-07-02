@@ -9,9 +9,23 @@
   <meta name="color-scheme" content="light dark">
   <script>
     {
-      const cs = localStorage.getItem('ngsupa-color-scheme');
-      if (cs) {
-        document.querySelector('meta[name="color-scheme"]').content = cs;
+      const stored = localStorage.getItem('ngsupa-color-scheme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const resolved = stored === 'light' || stored === 'dark'
+        ? stored
+        : (prefersDark ? 'dark' : 'light');
+      const pref = stored === 'light' || stored === 'dark' ? stored : 'system';
+
+      // Set color-scheme CSS property so CSS light-dark() tokens resolve on first paint
+      document.documentElement.style.colorScheme = pref === 'system' ? 'light dark' : resolved;
+
+      // Set meta tag for browser UI chrome
+      document.querySelector('meta[name="color-scheme"]').content =
+        pref === 'system' ? 'light dark' : resolved;
+
+      // Toggle .dark class for Tailwind dark: variants
+      if (resolved === 'dark') {
+        document.documentElement.classList.add('dark');
       }
     }
   </script>

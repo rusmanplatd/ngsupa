@@ -37,13 +37,17 @@ export class ThemeState {
 
       if (!this.isBrowser) return;
 
-      // Update meta tag
+      // Set color-scheme on <html> so CSS light-dark() tokens resolve correctly.
+      // The meta tag only affects browser UI chrome; the CSS property drives light-dark().
+      document.documentElement.style.colorScheme = pref === 'system' ? 'light dark' : resolved;
+
+      // Update meta tag for browser UI chrome (scrollbars, form controls)
       const meta = document.querySelector('meta[name="color-scheme"]');
       if (meta) {
-        meta.setAttribute('content', pref === 'system' ? 'light dark' : pref);
+        meta.setAttribute('content', pref === 'system' ? 'light dark' : resolved);
       }
 
-      // Update html class for Tailwind dark: variants
+      // Toggle .dark class for Tailwind dark: variants
       document.documentElement.classList.toggle('dark', resolved === 'dark');
 
       // Persist preference
