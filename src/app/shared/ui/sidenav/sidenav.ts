@@ -23,6 +23,8 @@ export interface SidenavItem {
   disabled?: boolean;
   badge?: string | number;
   indent?: number;
+  /** Nested children for multi-level trees */
+  children?: SidenavItem[];
 }
 
 // ─── SidenavItemComponent ────────────────────────────────────────────
@@ -41,22 +43,34 @@ export interface SidenavItem {
       [class.sidenav-item--active]="active()"
       [class.sidenav-item--disabled]="disabled()"
       [class.sidenav-item--collapsed]="collapsed()"
+      [class.sidenav-item--has-children]="expandable()"
       [style.padding-left]="indentPx()"
       [disabled]="disabled()"
+      [attr.aria-expanded]="expandable() ? expanded() : null"
       [appTooltip]="collapsed() ? label() : ''"
       tooltipPosition="right"
       [tooltipDelay]="300"
-      (click)="itemClick.emit()"
+      (click)="handleClick()"
     >
       <!-- Active indicator bar -->
       @if (active()) {
         <span class="sidenav-item__indicator" aria-hidden="true"></span>
       }
 
+      <!-- Tree branch connector (L-shape) for nested items -->
+      @if (indent() > 0 && !collapsed()) {
+        <span class="sidenav-item__branch" aria-hidden="true"></span>
+      }
+
       @if (icon()) {
         <span class="sidenav-item__icon">
           <svg [lucideIcon]="icon()!" [size]="20" />
         </span>
+      }
+
+      <!-- Dot placeholder when no icon at deeper nesting -->
+      @if (!icon() && indent() > 0 && !collapsed()) {
+        <span class="sidenav-item__dot" aria-hidden="true"></span>
       }
 
       <span class="sidenav-item__label" [class.sidenav-item__label--hidden]="collapsed()">
@@ -72,14 +86,26 @@ export interface SidenavItem {
       @if (badge() !== undefined && badge() !== null && collapsed()) {
         <span class="sidenav-item__badge-dot" aria-hidden="true"></span>
       }
+
+      <!-- Expand/collapse chevron for items with children -->
+      @if (expandable() && !collapsed()) {
+        <svg
+          lucideIcon="chevron-right"
+          [size]="14"
+          class="sidenav-item__chevron"
+          [class.sidenav-item__chevron--open]="expanded()"
+          aria-hidden="true"
+        />
+      }
     </button>
   `,
   styles: `
+
     .sidenav-item {
       position: relative;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       width: 100%;
       padding: 9px 16px;
       border: none;
@@ -154,6 +180,19 @@ export interface SidenavItem {
       }
     }
 
+    /* ── Branch connector: horizontal-only L-turn ── */
+    .sidenav-item__branch {
+      display: inline-flex;
+      flex-shrink: 0;
+      width: 10px;
+      height: 10px;
+      /* Only the horizontal bottom portion — the subgroup draws the vertical rail */
+      border-bottom: 1px solid var(--separator);
+      border-bottom-left-radius: 2px;
+      margin-left: -1px;
+      align-self: center;
+    }
+
     .sidenav-item__icon {
       display: flex;
       align-items: center;
@@ -166,6 +205,22 @@ export interface SidenavItem {
 
     .sidenav-item--active .sidenav-item__icon {
       color: var(--color-system-blue);
+    }
+
+    /* ── Dot placeholder (when no icon at nested levels) ── */
+    .sidenav-item__dot {
+      flex-shrink: 0;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.4;
+      margin: 0 9.5px;
+    }
+
+    .sidenav-item--active .sidenav-item__dot {
+      background: var(--color-system-blue);
+      opacity: 1;
     }
 
     .sidenav-item__label {
@@ -215,6 +270,22 @@ export interface SidenavItem {
       background: var(--color-system-blue);
       animation: clear-btn-in 0.2s var(--ease-spring);
     }
+
+    /* ── Expand chevron ── */
+    .sidenav-item__chevron {
+      flex-shrink: 0;
+      color: var(--text-quaternary);
+      transition: transform var(--duration-normal) var(--ease-default);
+      margin-left: auto;
+    }
+
+    .sidenav-item__chevron--open {
+      transform: rotate(90deg);
+    }
+
+    .sidenav-item--active .sidenav-item__chevron {
+      color: var(--color-system-blue);
+    }
   `,
 })
 export class SidenavItemComponent {
@@ -225,14 +296,108 @@ export class SidenavItemComponent {
   readonly badge = input<string | number | undefined>(undefined);
   readonly collapsed = input(false);
   readonly indent = input(0);
+  /**
+   * When true the item renders a chevron and emits `expandedChange`
+   * so the parent can show/hide children in a `SidenavSubgroupComponent`.
+   */
+  readonly expandable = input(false);
+  /** Two-way bound expanded state (use with SidenavSubgroupComponent). */
+  readonly expanded = model(false);
 
   readonly itemClick = output<void>();
 
   protected readonly indentPx = computed(() => {
     const indent = this.indent();
     if (indent <= 0 || this.collapsed()) return undefined;
+    // Each indent level adds 16px; the branch connector takes 12px of that
     return `${16 + indent * 16}px`;
   });
+
+  protected handleClick(): void {
+    if (this.expandable()) {
+      this.expanded.update(v => !v);
+    }
+    this.itemClick.emit();
+  }
+}
+
+/**
+ * Wraps child `app-sidenav-item` elements in an animated collapsible panel.
+ * Accepts an `indent` input (= the indent level of its direct children) to
+ * draw the continuous vertical guide rail at the correct horizontal position.
+ *
+ * ```html
+ * <app-sidenav-item label="Projects" icon="folder" expandable [(expanded)]="open" />
+ * <app-sidenav-subgroup [expanded]="open()" [indent]="1">
+ *   <app-sidenav-item label="Alpha" [indent]="1" />
+ *   <app-sidenav-subgroup [expanded]="innerOpen()" [indent]="2">
+ *     <app-sidenav-item label="Tasks" [indent]="2" />
+ *   </app-sidenav-subgroup>
+ * </app-sidenav-subgroup>
+ * ```
+ */
+@Component({
+  selector: 'app-sidenav-subgroup',
+  host: {
+    class: 'block',
+    role: 'group',
+  },
+  template: `
+    <div
+      class="sidenav-subgroup"
+      [class.sidenav-subgroup--open]="expanded()"
+    >
+      <div class="sidenav-subgroup__inner" role="list">
+        <!-- Continuous vertical rail connecting siblings at this indent level -->
+        <span
+          class="sidenav-subgroup__rail"
+          [style.left]="railLeft()"
+          aria-hidden="true"
+        ></span>
+        <ng-content />
+      </div>
+    </div>
+  `,
+  styles: `
+    .sidenav-subgroup {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows var(--duration-normal) var(--ease-default);
+    }
+
+    .sidenav-subgroup--open {
+      grid-template-rows: 1fr;
+    }
+
+    .sidenav-subgroup__inner {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Continuous vertical line spanning the full height of all sibling items */
+    .sidenav-subgroup__rail {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--separator);
+      pointer-events: none;
+    }
+  `,
+})
+export class SidenavSubgroupComponent {
+  /** Controls the open/closed state of this subgroup. */
+  readonly expanded = input(false);
+  /**
+   * The indent level of the direct children inside this subgroup.
+   * Used to position the continuous vertical rail at the same x as
+   * the children's branch connectors.
+   * Rail left = 14 + indent * 16  (mirrors indentPx - branch margin)
+   */
+  readonly indent = input(1);
+
+  protected readonly railLeft = computed(() => `${14 + this.indent() * 16}px`);
 }
 
 // ─── SidenavGroupComponent ───────────────────────────────────────────

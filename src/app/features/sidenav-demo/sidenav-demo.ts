@@ -18,7 +18,16 @@ import {
   SidenavComponent,
   SidenavItemComponent,
   SidenavGroupComponent,
+  SidenavSubgroupComponent,
 } from '../../shared/ui/sidenav/sidenav';
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon?: string;
+  badge?: string | number;
+  disabled?: boolean;
+}
 
 @Component({
   selector: 'app-sidenav-demo',
@@ -36,6 +45,7 @@ import {
     SidenavComponent,
     SidenavItemComponent,
     SidenavGroupComponent,
+    SidenavSubgroupComponent,
   ],
   template: `
     <app-toast-container />
@@ -72,79 +82,256 @@ import {
           }
         </div>
 
-        <!-- Main Navigation -->
-        <app-sidenav-group label="Navigation">
-          @for (item of mainNavItems; track item.id) {
-            <app-sidenav-item
-              [icon]="item.icon"
-              [label]="item.label"
-              [active]="activeItem() === item.id"
-              [badge]="item.badge"
-              [collapsed]="sidenavCollapsed()"
-              (itemClick)="activeItem.set(item.id)"
-            />
-          }
-        </app-sidenav-group>
-
-        <!-- Nested: Projects -->
-        <app-sidenav-group label="Projects" [collapsible]="true">
-          @for (project of projectItems; track project.id) {
-            <app-sidenav-item
-              [icon]="project.icon"
-              [label]="project.label"
-              [active]="activeItem() === project.id"
-              [badge]="project.badge"
-              [collapsed]="sidenavCollapsed()"
-              (itemClick)="activeItem.set(project.id)"
-            />
-          }
-          <!-- Sub-items (nested / indented) -->
-          @if (!sidenavCollapsed()) {
-            @for (task of nestedTaskItems; track task.id) {
+        @if (isSearching()) {
+          <!-- ── Search Results ────────────────────────── -->
+          <app-sidenav-group [label]="searchResultsLabel()">
+            @if (searchResults().length > 0) {
+              @for (item of searchResults(); track item.id) {
+                <app-sidenav-item
+                  [icon]="item.icon"
+                  [label]="item.label"
+                  [active]="activeItem() === item.id"
+                  [badge]="item.badge"
+                  [disabled]="item.disabled ?? false"
+                  [collapsed]="sidenavCollapsed()"
+                  (itemClick)="activeItem.set(item.id)"
+                />
+              }
+            } @else {
+              <div class="sidenav-empty-search">
+                <svg lucideIcon="search-x" [size]="28" class="sidenav-empty-search__icon" />
+                <span class="sidenav-empty-search__text">No results for "{{ searchVal() }}"</span>
+              </div>
+            }
+          </app-sidenav-group>
+        } @else {
+          <!-- ── Main Navigation ───────────────────────── -->
+          <app-sidenav-group label="Navigation">
+            @for (item of mainNavItems; track item.id) {
               <app-sidenav-item
-                [icon]="task.icon"
-                [label]="task.label"
-                [active]="activeItem() === task.id"
+                [icon]="item.icon"
+                [label]="item.label"
+                [active]="activeItem() === item.id"
+                [badge]="item.badge"
                 [collapsed]="sidenavCollapsed()"
-                [indent]="1"
-                [disabled]="task.disabled ?? false"
-                (itemClick)="activeItem.set(task.id)"
+                (itemClick)="activeItem.set(item.id)"
               />
             }
-          }
-        </app-sidenav-group>
+          </app-sidenav-group>
 
-        <!-- Teams -->
-        <app-sidenav-group label="Teams" [collapsible]="true">
-          @for (team of teamItems; track team.id) {
+          <!-- Nested: Projects (multi-level tree) -->
+          <app-sidenav-group label="Projects" [collapsible]="true">
+            <!-- Level 0: project root items -->
             <app-sidenav-item
-              [icon]="team.icon"
-              [label]="team.label"
-              [active]="activeItem() === team.id"
-              [badge]="team.badge"
+              icon="rocket"
+              label="Alpha Release"
+              [active]="activeItem() === 'project-alpha'"
               [collapsed]="sidenavCollapsed()"
-              (itemClick)="activeItem.set(team.id)"
+              (itemClick)="activeItem.set('project-alpha')"
             />
-          }
-        </app-sidenav-group>
+            <app-sidenav-item
+              icon="flask-conical"
+              label="Beta Testing"
+              [badge]="3"
+              [expandable]="true"
+              [(expanded)]="betaExpanded"
+              [active]="activeItem() === 'project-beta'"
+              [collapsed]="sidenavCollapsed()"
+              (itemClick)="openExpandable('project-beta')"
+            />
+            <!-- Level 1: beta sub-items -->
+            <app-sidenav-subgroup [expanded]="betaExpanded()" [indent]="1">
+              <app-sidenav-item
+                label="Sprint Planning"
+                [indent]="1"
+                [active]="activeItem() === 'beta-sprint'"
+                [collapsed]="sidenavCollapsed()"
+                (itemClick)="activeItem.set('beta-sprint')"
+              />
+              <app-sidenav-item
+                label="Bug Tracker"
+                [indent]="1"
+                [badge]="5"
+                [active]="activeItem() === 'beta-bugs'"
+                [collapsed]="sidenavCollapsed()"
+                (itemClick)="activeItem.set('beta-bugs')"
+              />
+              <!-- Level 1 expandable → Level 2 -->
+              <app-sidenav-item
+                icon="list-checks"
+                label="Milestones"
+                [indent]="1"
+                [expandable]="true"
+                [(expanded)]="milestonesExpanded"
+                [active]="activeItem() === 'beta-milestones'"
+                [collapsed]="sidenavCollapsed()"
+                (itemClick)="activeItem.set('beta-milestones')"
+              />
+              <!-- Level 2: milestone sub-items -->
+              <app-sidenav-subgroup [expanded]="milestonesExpanded()" [indent]="2">
+                <!-- L2: expandable → L3 -->
+                <app-sidenav-item
+                  label="M1 – Core"
+                  [indent]="2"
+                  [expandable]="true"
+                  [(expanded)]="m1Expanded"
+                  [active]="activeItem() === 'ms-core'"
+                  [collapsed]="sidenavCollapsed()"
+                  (itemClick)="activeItem.set('ms-core')"
+                />
+                <!-- Level 3: M1 tasks -->
+                <app-sidenav-subgroup [expanded]="m1Expanded()" [indent]="3">
+                  <app-sidenav-item
+                    label="Architecture"
+                    [indent]="3"
+                    [active]="activeItem() === 'ms-arch'"
+                    [collapsed]="sidenavCollapsed()"
+                    (itemClick)="activeItem.set('ms-arch')"
+                  />
+                  <!-- L3: expandable → L4 -->
+                  <app-sidenav-item
+                    label="Implementation"
+                    [indent]="3"
+                    [expandable]="true"
+                    [(expanded)]="implExpanded"
+                    [active]="activeItem() === 'ms-impl'"
+                    [collapsed]="sidenavCollapsed()"
+                    (itemClick)="activeItem.set('ms-impl')"
+                  />
+                  <!-- Level 4: implementation phases -->
+                  <app-sidenav-subgroup [expanded]="implExpanded()" [indent]="4">
+                    <app-sidenav-item
+                      label="Phase 1"
+                      [indent]="4"
+                      [active]="activeItem() === 'impl-p1'"
+                      [collapsed]="sidenavCollapsed()"
+                      (itemClick)="activeItem.set('impl-p1')"
+                    />
+                    <!-- L4: expandable → L5 -->
+                    <app-sidenav-item
+                      label="Phase 2"
+                      [indent]="4"
+                      [expandable]="true"
+                      [(expanded)]="phase2Expanded"
+                      [active]="activeItem() === 'impl-p2'"
+                      [collapsed]="sidenavCollapsed()"
+                      (itemClick)="activeItem.set('impl-p2')"
+                    />
+                    <!-- Level 5: deepest leaf items -->
+                    <app-sidenav-subgroup [expanded]="phase2Expanded()" [indent]="5">
+                      <app-sidenav-item
+                        label="Step A"
+                        [indent]="5"
+                        [active]="activeItem() === 'p2-step-a'"
+                        [collapsed]="sidenavCollapsed()"
+                        (itemClick)="activeItem.set('p2-step-a')"
+                      />
+                      <app-sidenav-item
+                        label="Step B"
+                        [indent]="5"
+                        [active]="activeItem() === 'p2-step-b'"
+                        [collapsed]="sidenavCollapsed()"
+                        (itemClick)="activeItem.set('p2-step-b')"
+                      />
+                      <app-sidenav-item
+                        label="Step C"
+                        [indent]="5"
+                        [disabled]="true"
+                        [active]="activeItem() === 'p2-step-c'"
+                        [collapsed]="sidenavCollapsed()"
+                        (itemClick)="activeItem.set('p2-step-c')"
+                      />
+                    </app-sidenav-subgroup>
+                    <app-sidenav-item
+                      label="Phase 3"
+                      [indent]="4"
+                      [active]="activeItem() === 'impl-p3'"
+                      [collapsed]="sidenavCollapsed()"
+                      (itemClick)="activeItem.set('impl-p3')"
+                    />
+                  </app-sidenav-subgroup>
+                  <app-sidenav-item
+                    label="Testing"
+                    [indent]="3"
+                    [active]="activeItem() === 'ms-test'"
+                    [collapsed]="sidenavCollapsed()"
+                    (itemClick)="activeItem.set('ms-test')"
+                  />
+                </app-sidenav-subgroup>
+                <app-sidenav-item
+                  label="M2 – Polish"
+                  [indent]="2"
+                  [active]="activeItem() === 'ms-polish'"
+                  [collapsed]="sidenavCollapsed()"
+                  (itemClick)="activeItem.set('ms-polish')"
+                />
+                <app-sidenav-item
+                  label="M3 – Launch"
+                  [indent]="2"
+                  [active]="activeItem() === 'ms-launch'"
+                  [collapsed]="sidenavCollapsed()"
+                  (itemClick)="activeItem.set('ms-launch')"
+                />
+              </app-sidenav-subgroup>
+            </app-sidenav-subgroup>
 
-        <!-- Settings -->
-        <app-sidenav-group label="Account">
-          <app-sidenav-item
-            icon="settings"
-            label="Settings"
-            [active]="activeItem() === 'settings'"
-            [collapsed]="sidenavCollapsed()"
-            (itemClick)="activeItem.set('settings')"
-          />
-          <app-sidenav-item
-            icon="help-circle"
-            label="Help & Support"
-            [active]="activeItem() === 'help'"
-            [collapsed]="sidenavCollapsed()"
-            (itemClick)="activeItem.set('help')"
-          />
-        </app-sidenav-group>
+            <app-sidenav-item
+              icon="palette"
+              label="Design System"
+              [expandable]="true"
+              [(expanded)]="designExpanded"
+              [active]="activeItem() === 'project-design'"
+              [collapsed]="sidenavCollapsed()"
+              (itemClick)="openExpandable('project-design')"
+            />
+            <!-- Level 1: design sub-items -->
+            <app-sidenav-subgroup [expanded]="designExpanded()" [indent]="1">
+              @for (task of nestedTaskItems; track task.id) {
+                <app-sidenav-item
+                  [icon]="task.icon"
+                  [label]="task.label"
+                  [active]="activeItem() === task.id"
+                  [collapsed]="sidenavCollapsed()"
+                  [indent]="1"
+                  [disabled]="task.disabled ?? false"
+                  (itemClick)="activeItem.set(task.id)"
+                />
+              }
+            </app-sidenav-subgroup>
+          </app-sidenav-group>
+
+          <!-- Teams -->
+          <app-sidenav-group label="Teams" [collapsible]="true">
+            @for (team of teamItems; track team.id) {
+              <app-sidenav-item
+                [icon]="team.icon"
+                [label]="team.label"
+                [active]="activeItem() === team.id"
+                [badge]="team.badge"
+                [collapsed]="sidenavCollapsed()"
+                (itemClick)="activeItem.set(team.id)"
+              />
+            }
+          </app-sidenav-group>
+
+          <!-- Settings -->
+          <app-sidenav-group label="Account">
+            <app-sidenav-item
+              icon="settings"
+              label="Settings"
+              [active]="activeItem() === 'settings'"
+              [collapsed]="sidenavCollapsed()"
+              (itemClick)="activeItem.set('settings')"
+            />
+            <app-sidenav-item
+              icon="help-circle"
+              label="Help & Support"
+              [active]="activeItem() === 'help'"
+              [collapsed]="sidenavCollapsed()"
+              (itemClick)="activeItem.set('help')"
+            />
+          </app-sidenav-group>
+        }
 
         <!-- Footer -->
         <div sidenav-footer class="sidenav-footer">
@@ -481,6 +668,27 @@ import {
       margin: 2px 0 0;
     }
 
+    /* ── Search Empty State ───────────────────────────── */
+    .sidenav-empty-search {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 24px 16px;
+      text-align: center;
+    }
+
+    .sidenav-empty-search__icon {
+      color: var(--text-quaternary);
+      opacity: 0.6;
+    }
+
+    .sidenav-empty-search__text {
+      font: var(--type-footnote);
+      color: var(--text-tertiary);
+      word-break: break-word;
+    }
+
     /* ── Sidenav Header Styling ───────────────────────── */
     .sidenav-header {
       display: flex;
@@ -586,6 +794,13 @@ export class SidenavDemoComponent {
   protected readonly toastService = inject(ToastService);
 
   // ── Controls ──
+  protected readonly betaExpanded = signal(false);
+  protected readonly designExpanded = signal(false);
+  protected readonly milestonesExpanded = signal(false);
+  protected readonly m1Expanded = signal(false);
+  protected readonly implExpanded = signal(false);
+  protected readonly phase2Expanded = signal(false);
+
   protected readonly sidenavVariant = signal<'glass' | 'solid' | 'floating'>('solid');
   protected readonly sidenavPosition = signal<'left' | 'right'>('left');
   protected readonly sidenavCollapsed = signal(false);
@@ -634,14 +849,48 @@ export class SidenavDemoComponent {
   ];
 
   // ── Computed ──
-  private readonly allItems = [
+  private readonly allItems: NavItem[] = [
     ...this.mainNavItems,
     ...this.projectItems,
     ...this.nestedTaskItems,
     ...this.teamItems,
     { id: 'settings', label: 'Settings', icon: 'settings' },
     { id: 'help', label: 'Help & Support', icon: 'help-circle' },
+    // Flat list of nested items that only appear when browsing (not in projectItems)
+    { id: 'beta-sprint', label: 'Sprint Planning' },
+    { id: 'beta-bugs', label: 'Bug Tracker' },
+    { id: 'beta-milestones', label: 'Milestones', icon: 'list-checks' },
+    { id: 'ms-core', label: 'M1 – Core' },
+    { id: 'ms-arch', label: 'Architecture' },
+    { id: 'ms-impl', label: 'Implementation' },
+    { id: 'impl-p1', label: 'Phase 1' },
+    { id: 'impl-p2', label: 'Phase 2' },
+    { id: 'p2-step-a', label: 'Step A' },
+    { id: 'p2-step-b', label: 'Step B' },
+    { id: 'p2-step-c', label: 'Step C', disabled: true },
+    { id: 'impl-p3', label: 'Phase 3' },
+    { id: 'ms-test', label: 'Testing' },
+    { id: 'ms-polish', label: 'M2 – Polish' },
+    { id: 'ms-launch', label: 'M3 – Launch' },
   ];
+
+  /** True when the user is actively searching */
+  protected readonly isSearching = computed(() => this.searchVal().trim().length > 0);
+
+  /** Items matching the current search query */
+  protected readonly searchResults = computed(() => {
+    const query = this.searchVal().trim().toLowerCase();
+    if (!query) return [];
+    return this.allItems.filter(item =>
+      item.label.toLowerCase().includes(query)
+    );
+  });
+
+  /** Label for the search results group showing match count */
+  protected readonly searchResultsLabel = computed(() => {
+    const count = this.searchResults().length;
+    return count === 0 ? 'Results' : `${count} result${count === 1 ? '' : 's'}`;
+  });
 
   protected readonly activePageTitle = computed(() => {
     const item = this.allItems.find(i => i.id === this.activeItem());
@@ -652,4 +901,16 @@ export class SidenavDemoComponent {
     const item = this.allItems.find(i => i.id === this.activeItem());
     return item?.icon ?? 'layout-dashboard';
   });
+
+  /**
+   * Handles clicks on expandable items.
+   * When the sidenav is collapsed, expands it first so the children become
+   * visible; the item's `expanded` model is already toggled by the component.
+   */
+  protected openExpandable(itemId: string): void {
+    if (this.sidenavCollapsed()) {
+      this.sidenavCollapsed.set(false);
+    }
+    this.activeItem.set(itemId);
+  }
 }

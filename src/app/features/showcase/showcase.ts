@@ -57,6 +57,8 @@ import {
   DataTableCellDirective,
   type DataTableColumnDef,
 } from '../../shared/ui/data-table/data-table';
+import { FileUploadComponent, FileEntry, UploadProgress } from '../../shared/ui/file-upload/file-upload';
+import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-showcase',
@@ -112,6 +114,7 @@ import {
     SidenavComponent,
     SidenavItemComponent,
     SidenavGroupComponent,
+    FileUploadComponent,
   ],
   template: `
     <app-toast-container />
@@ -2353,6 +2356,98 @@ import {
         </div>
       </section>
 
+      <app-divider />
+
+      <!-- ═══════════════════════════════════════════════════
+           Section: File Upload / Dropzone
+           ═══════════════════════════════════════════════════ -->
+      <section id="file-upload" class="mb-16 mt-16">
+        <h2 class="section-title">File Upload / Dropzone</h2>
+        <div class="space-y-10">
+
+          <!-- Default Dropzone -->
+          <div>
+            <h3 class="subsection-label">Default Dropzone</h3>
+            <app-file-upload
+              label="Drop files here"
+              accept="*"
+              [multiple]="true"
+              [maxFileSize]="10485760"
+              [maxFiles]="5"
+              (filesChange)="onUploadFilesChange($event)"
+              (fileError)="onUploadFileError($event)"
+            />
+          </div>
+
+          <!-- With Upload Progress -->
+          <div>
+            <h3 class="subsection-label">With Upload Progress (Simulated)</h3>
+            <app-file-upload
+              label="Upload documents"
+              hint="Files will upload automatically with simulated progress"
+              accept=".pdf,.docx,.txt,image/*"
+              [multiple]="true"
+              [maxFileSize]="5242880"
+              [maxFiles]="3"
+              [uploadFn]="mockUploadFn"
+              (filesChange)="onUploadFilesChange($event)"
+            />
+          </div>
+
+          <!-- Image Only -->
+          <div>
+            <h3 class="subsection-label">Image Only (with Previews)</h3>
+            <app-file-upload
+              label="Drop images here"
+              hint="PNG, JPG, GIF, WebP up to 8 MB"
+              accept="image/*"
+              [multiple]="true"
+              [maxFileSize]="8388608"
+              [maxFiles]="6"
+              (filesChange)="onUploadFilesChange($event)"
+            />
+          </div>
+
+          <div class="grid gap-8 md:grid-cols-2">
+            <!-- Compact Variant -->
+            <div>
+              <h3 class="subsection-label">Compact Variant</h3>
+              <app-file-upload
+                variant="compact"
+                accept=".pdf,.docx"
+                [multiple]="true"
+                [maxFiles]="3"
+                (filesChange)="onUploadFilesChange($event)"
+              />
+            </div>
+
+            <!-- Single File -->
+            <div>
+              <h3 class="subsection-label">Single File (Compact)</h3>
+              <app-file-upload
+                variant="compact"
+                label="Choose avatar"
+                accept="image/*"
+                [multiple]="false"
+                [maxFileSize]="2097152"
+                (filesChange)="onUploadFilesChange($event)"
+              />
+            </div>
+          </div>
+
+          <!-- Disabled -->
+          <div>
+            <h3 class="subsection-label">Disabled State</h3>
+            <app-file-upload
+              label="Upload unavailable"
+              hint="Feature temporarily disabled"
+              [disabled]="true"
+            />
+          </div>
+
+        </div>
+      </section>
+
     </main>
 
     <!-- Bottom toolbar demo -->
@@ -2602,6 +2697,40 @@ import {
   `],
 })
 export class ShowcaseComponent {
+  // --- File Upload state ---
+  protected readonly uploadedFiles = signal<FileEntry[]>([]);
+
+  protected onUploadFilesChange(files: FileEntry[]): void {
+    this.uploadedFiles.set(files);
+  }
+
+  protected onUploadFileError(error: { file: File; reason: string; message: string }): void {
+    this.toastService.error(`${error.file.name}: ${error.message}`);
+  }
+
+  protected readonly mockUploadFn = (file: File): Observable<UploadProgress> => {
+    return new Observable<UploadProgress>((subscriber) => {
+      let progress = 0;
+      const shouldFail = file.name.toLowerCase().includes('fail');
+      const interval = setInterval(() => {
+        progress += Math.floor(Math.random() * 15) + 5;
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(interval);
+          if (shouldFail) {
+            subscriber.next({ progress: 80, status: 'error', error: 'Simulated upload failure' });
+          } else {
+            subscriber.next({ progress: 100, status: 'success' });
+          }
+          subscriber.complete();
+        } else {
+          subscriber.next({ progress, status: 'uploading' });
+        }
+      }, 300);
+
+      return () => clearInterval(interval);
+    });
+  };
   protected readonly toastService = inject(ToastService);
   protected readonly actionSheetService = inject(ActionSheetService);
   private readonly modalService = inject(ModalService);
