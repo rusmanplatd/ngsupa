@@ -8,8 +8,13 @@ import {
   ElementRef,
   viewChildren,
   afterRenderEffect,
+  AfterViewInit,
+  inject,
+  DestroyRef,
+  Directive,
 } from '@angular/core';
 import { LucideDynamicIcon } from '@lucide/angular';
+import { FocusKeyManager, FocusableOption } from '@angular/cdk/a11y';
 
 export interface TabItem {
   id: string;
@@ -23,9 +28,30 @@ export type TabsVariant = 'underline' | 'filled' | 'pills';
 export type TabsSize = 'sm' | 'md' | 'lg';
 export type TabsOrientation = 'horizontal' | 'vertical';
 
+/**
+ * Thin wrapper that makes each tab button work as a `FocusableOption`
+ * so CDK FocusKeyManager can manage it.
+ */
+@Directive({
+  selector: '[appTabFocusItem]',
+})
+export class TabFocusItemDirective implements FocusableOption {
+  private readonly elRef = inject(ElementRef<HTMLButtonElement>);
+  /** Set by the parent tabs component to mark a tab as disabled. */
+  disabled: boolean | undefined = undefined;
+
+  focus(): void {
+    this.elRef.nativeElement.focus();
+  }
+
+  getLabel(): string {
+    return this.elRef.nativeElement.textContent?.trim() ?? '';
+  }
+}
+
 @Component({
   selector: 'app-tabs',
-  imports: [LucideDynamicIcon],
+  imports: [LucideDynamicIcon, TabFocusItemDirective],
   host: {
     class: 'block',
   },
@@ -50,6 +76,8 @@ export type TabsOrientation = 'horizontal' | 'vertical';
       @for (tab of tabs(); track tab.id; let i = $index) {
         <button
           #tabBtn
+          appTabFocusItem
+          [disabled]="tab.disabled"
           type="button"
           role="tab"
           [id]="'tabs-' + tab.id"
@@ -60,7 +88,7 @@ export type TabsOrientation = 'horizontal' | 'vertical';
           class="tabs__tab"
           [class]="tabClasses(tab)"
           (click)="selectTab(tab)"
-          (keydown)="onKeydown($event, i)"
+          (keydown)="onKeydown($event)"
         >
           @if (tab.icon) {
             <svg [lucideIcon]="tab.icon" [size]="iconSize()" class="tabs__icon" />
@@ -394,7 +422,7 @@ export type TabsOrientation = 'horizontal' | 'vertical';
     }
   `,
 })
-export class TabsComponent {
+export class TabsComponent implements AfterViewInit {
   readonly tabs = input.required<TabItem[]>();
   readonly activeTab = model.required<string>();
   readonly tabChanged = output<TabItem>();
@@ -405,6 +433,10 @@ export class TabsComponent {
   readonly ariaLabel = input('Tabs');
 
   private readonly tabBtns = viewChildren<ElementRef<HTMLButtonElement>>('tabBtn');
+  private readonly tabFocusItems = viewChildren(TabFocusItemDirective);
+  private readonly destroyRef = inject(DestroyRef);
+
+  private keyManager: FocusKeyManager<TabFocusItemDirective> | null = null;
 
   // Horizontal indicator position
   protected readonly indicatorLeft = signal(0);
@@ -445,7 +477,41 @@ export class TabsComponent {
           this.indicatorHeight.set(el.offsetHeight);
         }
       }
+
+      // Rebuild key manager when items change (orientation-aware)
+      this.buildKeyManager();
     });
+  }
+
+  ngAfterViewInit(): void {
+    this.buildKeyManager();
+  }
+
+  private buildKeyManager(): void {
+    const items = this.tabFocusItems();
+    if (items.length === 0) return;
+
+    // Sync disabled state into each directive so FocusKeyManager skips them
+    const allTabs = this.tabs();
+    items.forEach((item, idx) => {
+      item.disabled = allTabs[idx]?.disabled;
+    });
+
+    this.keyManager = new FocusKeyManager<TabFocusItemDirective>(items)
+      .withWrap()
+      .withTypeAhead(200);
+
+    if (this.isHorizontal()) {
+      this.keyManager.withHorizontalOrientation('ltr');
+    } else {
+      this.keyManager.withVerticalOrientation(true);
+    }
+
+    // Set initial active item to the currently selected tab
+    const activeIdx = this.tabs().findIndex(t => t.id === this.activeTab());
+    if (activeIdx >= 0) {
+      this.keyManager.setActiveItem(activeIdx);
+    }
   }
 
   protected tabClasses(tab: TabItem): string {
@@ -464,39 +530,46 @@ export class TabsComponent {
     this.tabChanged.emit(tab);
   }
 
-  protected onKeydown(event: KeyboardEvent, currentIndex: number): void {
+  protected onKeydown(event: KeyboardEvent): void {
+    const km = this.keyManager;
+    if (!km) return;
+
     const allTabs = this.tabs();
     const btns = this.tabBtns();
-    const horiz = this.isHorizontal();
-    let nextIndex: number | null = null;
 
-    const forwardKey = horiz ? 'ArrowRight' : 'ArrowDown';
-    const backKey = horiz ? 'ArrowLeft' : 'ArrowUp';
-
-    switch (event.key) {
-      case forwardKey:
-        event.preventDefault();
-        nextIndex = this.findNextEnabled(currentIndex, 1, allTabs);
-        break;
-      case backKey:
-        event.preventDefault();
-        nextIndex = this.findNextEnabled(currentIndex, -1, allTabs);
-        break;
-      case 'Home':
-        event.preventDefault();
-        nextIndex = this.findNextEnabled(-1, 1, allTabs);
-        break;
-      case 'End':
-        event.preventDefault();
-        nextIndex = this.findNextEnabled(allTabs.length, -1, allTabs);
-        break;
-      default:
-        return;
+    // Home/End are not handled by FocusKeyManager automatically in all versions
+    if (event.key === 'Home') {
+      event.preventDefault();
+      const firstEnabled = allTabs.findIndex(t => !t.disabled);
+      if (firstEnabled >= 0) {
+        this.selectTab(allTabs[firstEnabled]);
+        btns[firstEnabled]?.nativeElement.focus();
+        km.setActiveItem(firstEnabled);
+      }
+      return;
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      const lastEnabled = [...allTabs].reverse().findIndex(t => !t.disabled);
+      const lastIdx = lastEnabled >= 0 ? allTabs.length - 1 - lastEnabled : -1;
+      if (lastIdx >= 0) {
+        this.selectTab(allTabs[lastIdx]);
+        btns[lastIdx]?.nativeElement.focus();
+        km.setActiveItem(lastIdx);
+      }
+      return;
     }
 
-    if (nextIndex !== null && btns[nextIndex]) {
-      this.selectTab(allTabs[nextIndex]);
-      btns[nextIndex].nativeElement.focus();
+    // Delegate arrow keys to FocusKeyManager (RTL-aware)
+    km.onKeydown(event);
+
+    // After focus moves, activate the newly focused tab (ARIA pattern: follow focus)
+    const newIdx = km.activeItemIndex;
+    if (newIdx !== null && newIdx >= 0 && newIdx < allTabs.length) {
+      const tab = allTabs[newIdx];
+      if (!tab.disabled) {
+        this.selectTab(tab);
+      }
     }
   }
 
@@ -505,18 +578,5 @@ export class TabsComponent {
       return badge > 99 ? '99+' : `${badge}`;
     }
     return `${badge}`;
-  }
-
-  private findNextEnabled(current: number, direction: 1 | -1, allTabs: TabItem[]): number | null {
-    const len = allTabs.length;
-    let idx = current + direction;
-    let checked = 0;
-    while (checked < len) {
-      idx = ((idx % len) + len) % len;
-      if (!allTabs[idx].disabled) return idx;
-      idx += direction;
-      checked++;
-    }
-    return null;
   }
 }

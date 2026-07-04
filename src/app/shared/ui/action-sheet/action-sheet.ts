@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
+import { A11yModule } from '@angular/cdk/a11y';
 import { LucideDynamicIcon } from '@lucide/angular';
 
 export interface ActionSheetAction {
@@ -79,14 +80,18 @@ export class ActionSheetService {
 
 @Component({
   selector: 'app-action-sheet-panel',
-  imports: [LucideDynamicIcon],
+  imports: [LucideDynamicIcon, A11yModule],
   host: {
     class: 'block p-2',
     role: 'dialog',
     'aria-modal': 'true',
   },
   template: `
-    <div class="action-sheet-content rounded-2xl bg-[var(--glass-bg-thick)] backdrop-blur-xl border border-[var(--glass-border)] overflow-hidden">
+    <div
+      class="action-sheet-content rounded-2xl bg-[var(--glass-bg-thick)] backdrop-blur-xl border border-[var(--glass-border)] overflow-hidden"
+      cdkTrapFocus
+      cdkTrapFocusAutoCapture="true"
+    >
       <!-- Header -->
       @if (config().title || config().message) {
         <div class="px-4 py-3 text-center border-b border-[var(--separator)]">

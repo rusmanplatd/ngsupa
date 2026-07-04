@@ -12,6 +12,7 @@ import {
   DestroyRef,
   inject,
 } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 
 @Directive({
   selector: '[appCarouselSlide]',
@@ -32,7 +33,13 @@ export type CarouselVariant = 'default' | 'card' | 'fullbleed';
     class: 'block',
     '[attr.aria-roledescription]': '"carousel"',
     '[attr.aria-label]': 'ariaLabel()',
+    // tabindex="0" is required so the host can receive focus and fire keydown events
+    tabindex: '0',
     '(keydown)': 'onKeydown($event)',
+    '(mouseenter)': 'onPointerEnter()',
+    '(mouseleave)': 'onPointerLeave()',
+    '(focus)': 'onPointerEnter()',
+    '(blur)': 'onPointerLeave()',
   },
   template: `
     <!-- Header row: title + nav arrows -->
@@ -241,6 +248,13 @@ export type CarouselVariant = 'default' | 'card' | 'fullbleed';
       outline: 2px solid var(--focus-ring);
       outline-offset: 2px;
     }
+
+    /* ── Host focus ring ─────────────────────────────────── */
+    :host:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 4px;
+      border-radius: var(--radius-md);
+    }
   `,
 })
 export class CarouselComponent {
@@ -273,6 +287,7 @@ export class CarouselComponent {
   protected readonly slides = contentChildren(CarouselSlideDirective, { read: ElementRef });
   private readonly trackRef = viewChild.required<ElementRef<HTMLElement>>('trackEl');
   private readonly destroyRef = inject(DestroyRef);
+  private readonly liveAnnouncer = inject(LiveAnnouncer);
 
   protected readonly slideCount = computed(() => this.slides().length);
   protected readonly maxIndex = computed(() => Math.max(0, this.slideCount() - 1));
@@ -280,13 +295,15 @@ export class CarouselComponent {
 
   private autoplayTimer: ReturnType<typeof setInterval> | null = null;
   private scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** Tracks whether focus or hover is active — pauses autoplay while true. */
+  private paused = false;
 
   constructor() {
     // Set up autoplay after render
     afterRenderEffect(() => {
       const interval = this.autoplay();
       this.clearAutoplay();
-      if (interval > 0) {
+      if (interval > 0 && !this.paused) {
         this.autoplayTimer = setInterval(() => {
           const nextIdx = this.currentIndex() < this.maxIndex() ? this.currentIndex() + 1 : 0;
           this.goTo(nextIdx);
@@ -315,6 +332,12 @@ export class CarouselComponent {
 
     this.currentIndex.set(index);
     this.slideChange.emit(index);
+
+    // Announce slide change to screen readers
+    this.liveAnnouncer.announce(
+      `Slide ${index + 1} of ${slideEls.length}`,
+      'polite'
+    );
   }
 
   /** Go to next slide. */
@@ -344,6 +367,30 @@ export class CarouselComponent {
     } else if (event.key === 'ArrowLeft') {
       event.preventDefault();
       this.prev();
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      this.goTo(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      this.goTo(this.maxIndex());
+    }
+  }
+
+  /** Pause autoplay on hover or focus — per WCAG 2.1 SC 2.2.2. */
+  protected onPointerEnter(): void {
+    this.paused = true;
+    this.clearAutoplay();
+  }
+
+  /** Resume autoplay when hover/focus is lost. */
+  protected onPointerLeave(): void {
+    this.paused = false;
+    const interval = this.autoplay();
+    if (interval > 0) {
+      this.autoplayTimer = setInterval(() => {
+        const nextIdx = this.currentIndex() < this.maxIndex() ? this.currentIndex() + 1 : 0;
+        this.goTo(nextIdx);
+      }, interval);
     }
   }
 

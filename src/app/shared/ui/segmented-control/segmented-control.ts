@@ -1,21 +1,45 @@
 import {
   Component,
+  Directive,
   input,
   model,
-  computed,
   signal,
   ElementRef,
   viewChildren,
   afterRenderEffect,
+  inject,
+  DestroyRef,
+  AfterViewInit,
 } from '@angular/core';
+import { FocusKeyManager, FocusableOption } from '@angular/cdk/a11y';
 
 export interface SegmentOption {
   value: string;
   label: string;
 }
 
+/**
+ * Thin wrapper that makes each segment button a `FocusableOption`
+ * so CDK FocusKeyManager can manage it.
+ */
+@Directive({
+  selector: '[appSegmentFocusItem]',
+})
+export class SegmentFocusItemDirective implements FocusableOption {
+  private readonly elRef = inject(ElementRef<HTMLButtonElement>);
+
+  focus(): void {
+    this.elRef.nativeElement.focus();
+  }
+
+  getLabel(): string {
+    return this.elRef.nativeElement.textContent?.trim() ?? '';
+  }
+}
+
 @Component({
   selector: 'app-segmented-control',
+  imports: [SegmentFocusItemDirective],
   host: {
     class: 'block',
     role: 'radiogroup',
@@ -32,16 +56,17 @@ export interface SegmentOption {
       @for (option of options(); track option.value; let i = $index) {
         <button
           #segmentBtn
+          appSegmentFocusItem
           type="button"
           role="radio"
           [attr.aria-checked]="value() === option.value"
-          class="relative z-10 cursor-pointer rounded-md px-4 py-1.5 text-sm font-medium transition-colors duration-fast"
+          [attr.tabindex]="value() === option.value ? 0 : -1"
+          class="relative z-10 cursor-pointer rounded-md px-4 py-1.5 text-sm font-medium transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-1"
           [class]="value() === option.value
             ? 'text-[var(--text-primary)]'
             : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'"
-          (click)="select(option.value)"
-          (keydown.arrowRight)="selectNext(i)"
-          (keydown.arrowLeft)="selectPrev(i)"
+          (click)="select(option.value, i)"
+          (keydown)="onKeydown($event, i)"
         >
           {{ option.label }}
         </button>
@@ -49,12 +74,16 @@ export interface SegmentOption {
     </div>
   `,
 })
-export class SegmentedControlComponent {
+export class SegmentedControlComponent implements AfterViewInit {
   readonly options = input.required<SegmentOption[]>();
   readonly value = model.required<string>();
   readonly ariaLabel = input('');
 
   private readonly segmentBtns = viewChildren<ElementRef<HTMLButtonElement>>('segmentBtn');
+  private readonly segmentFocusItems = viewChildren(SegmentFocusItemDirective);
+  private readonly destroyRef = inject(DestroyRef);
+
+  private keyManager: FocusKeyManager<SegmentFocusItemDirective> | null = null;
 
   protected readonly indicatorLeft = signal(2);
   protected readonly indicatorWidth = signal(0);
@@ -70,24 +99,74 @@ export class SegmentedControlComponent {
         this.indicatorLeft.set(el.offsetLeft);
         this.indicatorWidth.set(el.offsetWidth);
       }
+
+      // Rebuild key manager when items change
+      this.buildKeyManager();
     });
   }
 
-  protected select(val: string): void {
+  ngAfterViewInit(): void {
+    this.buildKeyManager();
+  }
+
+  private buildKeyManager(): void {
+    const items = this.segmentFocusItems();
+    if (items.length === 0) return;
+
+    this.keyManager = new FocusKeyManager<SegmentFocusItemDirective>(items)
+      .withWrap()
+      .withHorizontalOrientation('ltr')
+      .withTypeAhead(200);
+
+    // Set initial active item to the currently selected segment
+    const activeIdx = this.options().findIndex((o) => o.value === this.value());
+    if (activeIdx >= 0) {
+      this.keyManager.setActiveItem(activeIdx);
+    }
+  }
+
+  protected select(val: string, index: number): void {
     this.value.set(val);
+    this.keyManager?.setActiveItem(index);
   }
 
-  protected selectNext(currentIndex: number): void {
-    const opts = this.options();
-    const nextIdx = (currentIndex + 1) % opts.length;
-    this.value.set(opts[nextIdx].value);
-    this.segmentBtns()[nextIdx]?.nativeElement.focus();
-  }
+  protected onKeydown(event: KeyboardEvent, currentIndex: number): void {
+    const km = this.keyManager;
+    if (!km) return;
 
-  protected selectPrev(currentIndex: number): void {
     const opts = this.options();
-    const prevIdx = (currentIndex - 1 + opts.length) % opts.length;
-    this.value.set(opts[prevIdx].value);
-    this.segmentBtns()[prevIdx]?.nativeElement.focus();
+    const btns = this.segmentBtns();
+
+    // Home / End — jump to first/last
+    if (event.key === 'Home') {
+      event.preventDefault();
+      const firstOpt = opts[0];
+      if (firstOpt) {
+        this.value.set(firstOpt.value);
+        km.setActiveItem(0);
+        btns[0]?.nativeElement.focus();
+      }
+      return;
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      const lastIdx = opts.length - 1;
+      const lastOpt = opts[lastIdx];
+      if (lastOpt) {
+        this.value.set(lastOpt.value);
+        km.setActiveItem(lastIdx);
+        btns[lastIdx]?.nativeElement.focus();
+      }
+      return;
+    }
+
+    // Delegate arrow keys and typeahead to FocusKeyManager
+    km.onKeydown(event);
+
+    // After focus moves, activate the newly focused segment (follow-focus ARIA pattern)
+    const newIdx = km.activeItemIndex;
+    if (newIdx !== null && newIdx >= 0 && newIdx < opts.length) {
+      this.value.set(opts[newIdx].value);
+    }
   }
 }

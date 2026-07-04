@@ -58,6 +58,8 @@ import {
   type DataTableColumnDef,
 } from '../../shared/ui/data-table/data-table';
 import { FileUploadComponent, FileEntry, UploadProgress } from '../../shared/ui/file-upload/file-upload';
+import { BreadcrumbComponent, type BreadcrumbItem } from '../../shared/ui/breadcrumb/breadcrumb';
+import { TimelineComponent, type TimelineEvent } from '../../shared/ui/timeline/timeline';
 import { Observable } from 'rxjs';
 
 @Component({
@@ -115,6 +117,8 @@ import { Observable } from 'rxjs';
     SidenavItemComponent,
     SidenavGroupComponent,
     FileUploadComponent,
+    BreadcrumbComponent,
+    TimelineComponent,
   ],
   template: `
     <app-toast-container />
@@ -2448,11 +2452,97 @@ import { Observable } from 'rxjs';
         </div>
       </section>
 
+      <app-divider />
+
+      <!-- ═══════════════════════════════════════════════════
+           Section: Breadcrumb
+           ═══════════════════════════════════════════════════ -->
+      <section id="breadcrumb" class="mb-16 mt-16">
+        <h2 class="section-title">Breadcrumb</h2>
+        <div class="space-y-8">
+
+          <!-- Basic -->
+          <div>
+            <h3 class="subsection-label">Basic</h3>
+            <app-card variant="outlined" padding="md">
+              <app-breadcrumb [items]="breadcrumbBasic" />
+            </app-card>
+          </div>
+
+          <!-- With icons -->
+          <div>
+            <h3 class="subsection-label">With Icons</h3>
+            <app-card variant="outlined" padding="md">
+              <app-breadcrumb [items]="breadcrumbIcons" />
+            </app-card>
+          </div>
+
+          <!-- Overflow truncation -->
+          <div>
+            <h3 class="subsection-label">Overflow Truncation (maxVisible: 3)</h3>
+            <app-card variant="outlined" padding="md">
+              <app-breadcrumb [items]="breadcrumbDeep" [maxVisible]="3" />
+            </app-card>
+          </div>
+
+          <!-- Disabled mid-trail crumb -->
+          <div>
+            <h3 class="subsection-label">Disabled Mid-Trail Item</h3>
+            <app-card variant="outlined" padding="md">
+              <app-breadcrumb [items]="breadcrumbDisabled" />
+            </app-card>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════
+           Section: Timeline
+           ═══════════════════════════════════════════════════ -->
+      <section id="timeline" class="mb-16">
+        <h2 class="section-title">Timeline / Activity Feed</h2>
+        <div class="space-y-8">
+
+          <!-- Order Tracking -->
+          <div>
+            <h3 class="subsection-label">Order Tracking</h3>
+            <app-card variant="outlined" padding="lg">
+              <app-timeline [events]="timelineOrder" ariaLabel="Order status timeline" />
+            </app-card>
+          </div>
+
+          <!-- Changelog -->
+          <div>
+            <h3 class="subsection-label">Changelog</h3>
+            <app-card variant="outlined" padding="lg">
+              <app-timeline [events]="timelineChangelog" ariaLabel="Release changelog" />
+            </app-card>
+          </div>
+
+          <!-- User Activity -->
+          <div>
+            <h3 class="subsection-label">User Activity Feed</h3>
+            <app-card variant="outlined" padding="lg">
+              <app-timeline [events]="timelineActivity" size="lg" ariaLabel="User activity feed" />
+            </app-card>
+          </div>
+
+          <!-- Compact (sm) -->
+          <div>
+            <h3 class="subsection-label">Compact</h3>
+            <app-card variant="outlined" padding="md">
+              <app-timeline [events]="timelineCompact" size="sm" ariaLabel="Compact timeline" />
+            </app-card>
+          </div>
+
+        </div>
+      </section>
+
     </main>
 
     <!-- Bottom toolbar demo -->
     <app-toolbar ariaLabel="Page actions" variant="prominent">
-      <span toolbar-leading class="text-xs text-[var(--text-tertiary)]">40 components</span>
+      <span toolbar-leading class="text-xs text-[var(--text-tertiary)]">42 components</span>
       <button appButton variant="gray" size="sm" [rounded]="true" (click)="toastService.info('Shared!')">
         <svg lucideIcon="share" [size]="14" /> Share
       </button>
@@ -3226,6 +3316,37 @@ export class ShowcaseComponent {
     { name: 'Gray', token: 'gray-500', value: 'oklch(55% 0.013 264)' },
   ];
 
+  // --- Breadcrumb data ---
+  protected readonly breadcrumbBasic: BreadcrumbItem[] = [
+    { label: 'Home',     path: '/' },
+    { label: 'Library',  path: '/library' },
+    { label: 'Albums',   path: '/library/albums' },
+    { label: 'Favorites' },
+  ];
+
+  protected readonly breadcrumbIcons: BreadcrumbItem[] = [
+    { label: 'Home',     path: '/',                icon: 'house' },
+    { label: 'Settings', path: '/settings',         icon: 'settings' },
+    { label: 'Privacy',  path: '/settings/privacy', icon: 'shield' },
+    { label: 'Location' },
+  ];
+
+  protected readonly breadcrumbDeep: BreadcrumbItem[] = [
+    { label: 'Home',        path: '/' },
+    { label: 'Products',    path: '/products' },
+    { label: 'Electronics', path: '/products/electronics' },
+    { label: 'Computers',   path: '/products/electronics/computers' },
+    { label: 'Laptops',     path: '/products/electronics/computers/laptops' },
+    { label: 'MacBook Pro' },
+  ];
+
+  protected readonly breadcrumbDisabled: BreadcrumbItem[] = [
+    { label: 'Home',        path: '/' },
+    { label: 'Restricted',  path: '/restricted', disabled: true },
+    { label: 'Reports',     path: '/restricted/reports' },
+    { label: 'Annual 2025' },
+  ];
+
   protected readonly iconNames = Object.values(icons as Record<string, any>)
     .map(icon => icon.icon ? icon.icon.name : icon.name)
     .filter(name => typeof name === 'string');
@@ -3516,4 +3637,175 @@ export class ShowcaseComponent {
       this.toastService.info(`Context menu: ${result}`);
     }
   }
+
+  /* ── Timeline Demo Data ─────────────────────────────────── */
+
+  protected readonly timelineOrder: TimelineEvent[] = [
+    {
+      id: 'order-1',
+      title: 'Order Placed',
+      description: 'Your order #NG-20260704 has been confirmed.',
+      timestamp: 'Jul 1, 10:30 AM',
+      icon: 'shopping-bag',
+      completed: true,
+    },
+    {
+      id: 'order-2',
+      title: 'Payment Confirmed',
+      description: 'Payment of $149.00 processed successfully via Apple Pay.',
+      timestamp: 'Jul 1, 10:31 AM',
+      icon: 'credit-card',
+      completed: true,
+    },
+    {
+      id: 'order-3',
+      title: 'Shipped',
+      description: 'Package picked up by carrier. Tracking: 1Z999AA10012345678',
+      timestamp: 'Jul 2, 2:15 PM',
+      icon: 'truck',
+      completed: true,
+      tags: ['Express Shipping', 'Insured'],
+    },
+    {
+      id: 'order-4',
+      title: 'Out for Delivery',
+      description: 'Your package is on its way. Estimated arrival by 5:00 PM.',
+      timestamp: 'Jul 4, 8:20 AM',
+      icon: 'package',
+      active: true,
+    },
+    {
+      id: 'order-5',
+      title: 'Delivered',
+      timestamp: 'Pending',
+      icon: 'check-circle',
+      variant: 'neutral',
+    },
+  ];
+
+  protected readonly timelineChangelog: TimelineEvent[] = [
+    {
+      id: 'cl-1',
+      title: 'v2.4.0 — Timeline Component',
+      description: 'Added the new Timeline / Activity Feed component with connecting lines, animated nodes, and multiple variants.',
+      timestamp: 'Jul 4, 2026',
+      icon: 'git-branch',
+      variant: 'success',
+      tags: ['Feature', 'UI'],
+      active: true,
+    },
+    {
+      id: 'cl-2',
+      title: 'v2.3.1 — Bug Fixes',
+      description: 'Fixed carousel auto-play pause on hover and date picker timezone offset.',
+      timestamp: 'Jun 28, 2026',
+      icon: 'bug',
+      variant: 'warning',
+      tags: ['Bugfix'],
+    },
+    {
+      id: 'cl-3',
+      title: 'v2.3.0 — Breadcrumb Navigation',
+      description: 'Introduced the Breadcrumb component with overflow truncation, icons, and disabled state support.',
+      timestamp: 'Jun 20, 2026',
+      icon: 'layers',
+      variant: 'info',
+      tags: ['Feature', 'Navigation'],
+    },
+    {
+      id: 'cl-4',
+      title: 'v2.2.0 — Data Table Enhancements',
+      description: 'Column sorting, row selection, inline editing, and virtual scroll for large datasets.',
+      timestamp: 'Jun 10, 2026',
+      icon: 'table',
+      variant: 'default',
+      tags: ['Enhancement'],
+    },
+    {
+      id: 'cl-5',
+      title: 'v2.1.0 — File Upload Component',
+      description: 'Drag & drop file upload with progress indicators, file type validation, and preview thumbnails.',
+      timestamp: 'May 28, 2026',
+      icon: 'upload',
+      variant: 'default',
+      tags: ['Feature'],
+    },
+  ];
+
+  protected readonly timelineActivity: TimelineEvent[] = [
+    {
+      id: 'act-1',
+      title: 'Sarah Chen deployed v2.4.0 to production',
+      description: 'All 47 tests passed. Build time: 23s. Bundle size: 142kb (gzipped).',
+      timestamp: '2 minutes ago',
+      avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Sarah',
+      tags: ['Deploy', 'Production'],
+    },
+    {
+      id: 'act-2',
+      title: 'Alex Rivera merged PR #182',
+      description: 'feat: add Timeline component with animations and accessibility support',
+      timestamp: '15 minutes ago',
+      avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Alex',
+      tags: ['Pull Request', 'Merged'],
+    },
+    {
+      id: 'act-3',
+      title: 'CI Pipeline completed successfully',
+      description: 'Lint, unit tests, and e2e tests all passed on branch main.',
+      timestamp: '18 minutes ago',
+      icon: 'check-circle',
+      variant: 'success',
+    },
+    {
+      id: 'act-4',
+      title: 'Maya Patel opened Issue #97',
+      description: 'Timeline connector animation jitters on Safari when reduced motion is disabled.',
+      timestamp: '1 hour ago',
+      avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Maya',
+      variant: 'warning',
+      tags: ['Bug', 'Safari'],
+    },
+    {
+      id: 'act-5',
+      title: 'Security scan completed',
+      description: 'No vulnerabilities found in 142 dependencies.',
+      timestamp: '3 hours ago',
+      icon: 'shield-check',
+      variant: 'info',
+    },
+  ];
+
+  protected readonly timelineCompact: TimelineEvent[] = [
+    {
+      id: 'c-1',
+      title: 'Build #4521 succeeded',
+      timestamp: '09:14 AM',
+      completed: true,
+    },
+    {
+      id: 'c-2',
+      title: 'Linting passed',
+      timestamp: '09:13 AM',
+      completed: true,
+    },
+    {
+      id: 'c-3',
+      title: 'Tests running',
+      timestamp: '09:12 AM',
+      active: true,
+    },
+    {
+      id: 'c-4',
+      title: 'Dependencies installed',
+      timestamp: '09:11 AM',
+      completed: true,
+    },
+    {
+      id: 'c-5',
+      title: 'Checkout complete',
+      timestamp: '09:10 AM',
+      completed: true,
+    },
+  ];
 }

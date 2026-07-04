@@ -7,9 +7,11 @@ import {
   ElementRef,
   viewChild,
   OnDestroy,
+  inject,
 } from '@angular/core';
 import { Observable, Subscription } from 'rxjs';
 import { LucideDynamicIcon } from '@lucide/angular';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { ProgressComponent } from '../progress/progress';
 
 // ── Interfaces ────────────────────────────────────────────────
@@ -502,6 +504,7 @@ export class FileUploadComponent implements OnDestroy {
   protected readonly statusAnnouncement = signal('');
   private dragCounter = 0;
   private readonly subscriptions = new Map<string, Subscription>();
+  private readonly liveAnnouncer = inject(LiveAnnouncer);
 
   private readonly fileInputRef = viewChild<ElementRef<HTMLInputElement>>('fileInput');
 
@@ -579,6 +582,7 @@ export class FileUploadComponent implements OnDestroy {
     this.dragCounter++;
     if (this.dragCounter === 1) {
       this.dragActive.set(true);
+      this.liveAnnouncer.announce('File dragged over drop zone. Release to upload.', 'polite');
     }
   }
 
@@ -606,6 +610,10 @@ export class FileUploadComponent implements OnDestroy {
     if (this.disabled()) return;
     const droppedFiles = event.dataTransfer?.files;
     if (droppedFiles?.length) {
+      this.liveAnnouncer.announce(
+        `${droppedFiles.length} ${droppedFiles.length === 1 ? 'file' : 'files'} dropped. Processing…`,
+        'polite'
+      );
       this.addFiles(Array.from(droppedFiles));
     }
   }

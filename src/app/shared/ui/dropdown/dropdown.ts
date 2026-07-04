@@ -13,6 +13,7 @@ import {
 import { Overlay, OverlayRef, ConnectedPosition } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { ViewContainerRef, TemplateRef } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { LucideDynamicIcon } from '@lucide/angular';
 
 // ── Interfaces ────────────────────────────────────────────────
@@ -464,7 +465,13 @@ export class DropdownComponent implements OnDestroy {
   private readonly overlay = inject(Overlay);
   private readonly elementRef = inject(ElementRef);
   private readonly vcr = inject(ViewContainerRef);
+  private readonly liveAnnouncer = inject(LiveAnnouncer);
   private overlayRef: OverlayRef | null = null;
+
+  // ── Typeahead ───────────────────────────────────────────────
+  /** Accumulated keystrokes for typeahead navigation (resets after 500ms). */
+  private typeaheadBuffer = '';
+  private typeaheadTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── View Children ───────────────────────────────────────────
   private readonly triggerElRef = viewChild<ElementRef<HTMLButtonElement>>('triggerEl');
@@ -729,6 +736,8 @@ export class DropdownComponent implements OnDestroy {
     this.isOpen.set(false);
     this.searchQuery.set('');
     this.activeIndex.set(-1);
+    this.typeaheadBuffer = '';
+    if (this.typeaheadTimer) clearTimeout(this.typeaheadTimer);
     this.closed.emit();
     // Return focus to trigger
     this.triggerElRef()?.nativeElement.focus();
@@ -836,24 +845,28 @@ export class DropdownComponent implements OnDestroy {
         event.preventDefault();
         this.activeIndex.update((i) => (i + 1) % total);
         this.scrollActiveIntoView();
+        this.announceActiveOption();
         break;
 
       case 'ArrowUp':
         event.preventDefault();
         this.activeIndex.update((i) => (i <= 0 ? total - 1 : i - 1));
         this.scrollActiveIntoView();
+        this.announceActiveOption();
         break;
 
       case 'Home':
         event.preventDefault();
         this.activeIndex.set(0);
         this.scrollActiveIntoView();
+        this.announceActiveOption();
         break;
 
       case 'End':
         event.preventDefault();
         this.activeIndex.set(total - 1);
         this.scrollActiveIntoView();
+        this.announceActiveOption();
         break;
 
       case 'Enter':
@@ -874,6 +887,54 @@ export class DropdownComponent implements OnDestroy {
       case 'Tab':
         this.close();
         break;
+
+      default: {
+        // Typeahead: only when NOT typing in the search box
+        if (this.searchFocused()) return;
+        const char = event.key;
+        if (char.length !== 1 || event.ctrlKey || event.altKey || event.metaKey) return;
+
+        event.preventDefault();
+        this.typeaheadBuffer += char.toLowerCase();
+
+        // Reset the buffer after 500ms of inactivity
+        if (this.typeaheadTimer) clearTimeout(this.typeaheadTimer);
+        this.typeaheadTimer = setTimeout(() => {
+          this.typeaheadBuffer = '';
+        }, 500);
+
+        // Find the next matching option (wraps from current position)
+        const query = this.typeaheadBuffer;
+        const currentIdx = this.activeIndex();
+        // Search from the item after the current active one, then wrap
+        const searchOrder = [
+          ...navOptions.slice(currentIdx + 1),
+          ...navOptions.slice(0, currentIdx + 1),
+        ];
+        const match = searchOrder.find((o) =>
+          o.label.toLowerCase().startsWith(query)
+        );
+        if (match) {
+          const matchIdx = navOptions.indexOf(match);
+          this.activeIndex.set(matchIdx);
+          this.scrollActiveIntoView();
+          this.announceActiveOption();
+        }
+      }
+    }
+  }
+
+  /** Announce the currently active option label to screen readers. */
+  private announceActiveOption(): void {
+    const navOptions = this.navigableOptions();
+    const idx = this.activeIndex();
+    if (idx >= 0 && idx < navOptions.length) {
+      const opt = navOptions[idx];
+      const total = navOptions.length;
+      this.liveAnnouncer.announce(
+        `${opt.label}, ${idx + 1} of ${total}`,
+        'assertive'
+      );
     }
   }
 
@@ -900,5 +961,6 @@ export class DropdownComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.overlayRef?.dispose();
+    if (this.typeaheadTimer) clearTimeout(this.typeaheadTimer);
   }
 }

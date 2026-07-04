@@ -1,4 +1,5 @@
-import { Component, input } from '@angular/core';
+import { Component, input, effect, inject } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 
 @Component({
   selector: 'app-spinner',
@@ -27,7 +28,7 @@ import { Component, input } from '@angular/core';
         stroke-linecap="round"
       />
     </svg>
-    <span class="sr-only">Loading…</span>
+    <span class="sr-only">{{ loading() ? (loadingLabel() || 'Loading…') : '' }}</span>
   `,
   styles: `
     :host {
@@ -49,9 +50,35 @@ import { Component, input } from '@angular/core';
 export class SpinnerComponent {
   readonly size = input<'sm' | 'md' | 'lg'>('md');
 
+  /** Whether the spinner is actively loading. When set to false after being true, doneMessage is announced. */
+  readonly loading = input(true);
+
+  /** Text announced via screen reader while spinner is active. */
+  readonly loadingLabel = input<string | null>(null);
+
+  /** Message announced to screen readers when loading completes (i.e. loading goes from true to false). */
+  readonly doneMessage = input<string | null>(null);
+
   protected readonly sizeMap: Record<string, number> = {
     sm: 16,
     md: 24,
     lg: 36,
   };
+
+  private readonly liveAnnouncer = inject(LiveAnnouncer);
+  private previousLoading = true;
+
+  constructor() {
+    effect(() => {
+      const isLoading = this.loading();
+      // Detect transition from loading → done
+      if (this.previousLoading && !isLoading) {
+        const msg = this.doneMessage();
+        if (msg) {
+          this.liveAnnouncer.announce(msg, 'polite');
+        }
+      }
+      this.previousLoading = isLoading;
+    });
+  }
 }

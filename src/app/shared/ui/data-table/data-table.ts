@@ -14,6 +14,7 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { LucideDynamicIcon } from '@lucide/angular';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { CheckboxComponent } from '../checkbox/checkbox';
 import { EmptyStateComponent } from '../empty-state/empty-state';
 
@@ -404,10 +405,6 @@ export class DataTableCellDirective {
       </div>
     }
 
-    <!-- ─── Live Region ─────────────────────────────────── -->
-    <div class="sr-only" aria-live="polite" role="status">
-      {{ liveAnnouncement() }}
-    </div>
   `,
   styleUrl: './data-table.css',
 })
@@ -448,7 +445,8 @@ export class DataTableComponent<T extends Record<string, unknown>> {
   protected readonly selectedKeys = signal<Set<string | number>>(new Set());
   protected readonly expandedKeys = signal<Set<string | number>>(new Set());
   protected readonly currentPageState = signal<PageState>({ pageIndex: 0, pageSize: 10, totalItems: 0 });
-  protected readonly liveAnnouncement = signal('');
+
+  private readonly liveAnnouncer = inject(LiveAnnouncer);
 
   // Debounce timer for search
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -641,14 +639,15 @@ export class DataTableComponent<T extends Record<string, unknown>> {
     this.sortState.set(next);
     this.sortChange.emit(next);
 
-    // Live announcement
+    // Live announcement via CDK LiveAnnouncer
     if (direction) {
       const col = this.columns().find((c) => c.key === colKey);
-      this.liveAnnouncement.set(
-        `Sorted by ${col?.header ?? colKey} ${direction === 'asc' ? 'ascending' : 'descending'}`
+      this.liveAnnouncer.announce(
+        `Sorted by ${col?.header ?? colKey} ${direction === 'asc' ? 'ascending' : 'descending'}`,
+        'polite'
       );
     } else {
-      this.liveAnnouncement.set('Sort cleared');
+      this.liveAnnouncer.announce('Sort cleared', 'polite');
     }
   }
 
@@ -663,10 +662,11 @@ export class DataTableComponent<T extends Record<string, unknown>> {
       // Reset to first page on search
       this.currentPageState.update((s) => ({ ...s, pageIndex: 0 }));
 
-      this.liveAnnouncement.set(
+      this.liveAnnouncer.announce(
         val
           ? `Found ${this.filteredData().length} results for "${val}"`
-          : 'Search cleared'
+          : 'Search cleared',
+        'polite'
       );
     }, 250);
   }
@@ -675,7 +675,7 @@ export class DataTableComponent<T extends Record<string, unknown>> {
     this.searchQuery.set('');
     this.internalSearchQuery.set('');
     this.currentPageState.update((s) => ({ ...s, pageIndex: 0 }));
-    this.liveAnnouncement.set('Search cleared');
+    this.liveAnnouncer.announce('Search cleared', 'polite');
   }
 
   /** Selection */

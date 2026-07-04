@@ -18,6 +18,14 @@ import { LucideDynamicIcon } from '@lucide/angular';
       [class.opacity-40]="disabled()"
       [style.background]="'var(--form-field-glass)'"
       [style.box-shadow]="'var(--form-field-shadow)'"
+      role="spinbutton"
+      [attr.aria-valuenow]="value()"
+      [attr.aria-valuemin]="min() ?? undefined"
+      [attr.aria-valuemax]="max() ?? undefined"
+      [attr.aria-label]="label() || ariaLabel() || 'Stepper'"
+      [attr.aria-disabled]="disabled() || null"
+      tabindex="0"
+      (keydown)="onKeydown($event)"
     >
       <!-- Decrement -->
       <button
@@ -26,6 +34,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
         [disabled]="disabled() || atMin()"
         [attr.aria-label]="'Decrease ' + (label() || 'value')"
         (click)="decrement()"
+        tabindex="-1"
       >
         <svg lucideIcon="minus" [size]="16" />
       </button>
@@ -36,7 +45,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
       <!-- Value display -->
       <span
         class="stepper-value inline-flex h-11 min-w-[3.5rem] items-center justify-center px-3 text-sm font-semibold tabular-nums text-[var(--text-primary)]"
-        aria-live="polite"
+        aria-hidden="true"
       >
         {{ value() }}
       </span>
@@ -51,6 +60,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
         [disabled]="disabled() || atMax()"
         [attr.aria-label]="'Increase ' + (label() || 'value')"
         (click)="increment()"
+        tabindex="-1"
       >
         <svg lucideIcon="plus" [size]="16" />
       </button>
@@ -64,6 +74,12 @@ import { LucideDynamicIcon } from '@lucide/angular';
     .stepper-value {
       animation: slide-up-value 0.15s var(--ease-default);
     }
+
+    /* Focus ring on the spinbutton container */
+    .stepper-container:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
   `,
 })
 export class StepperComponent {
@@ -75,6 +91,9 @@ export class StepperComponent {
   readonly ariaLabel = input<string | null>(null);
   readonly disabled = input(false);
 
+  /** Large step for PageUp/PageDown: 10× step or at least 10. */
+  private readonly largeStep = computed(() => Math.max(this.step() * 10, 10));
+
   protected readonly atMin = computed(() => {
     const m = this.min();
     return m !== null && this.value() <= m;
@@ -85,16 +104,60 @@ export class StepperComponent {
     return m !== null && this.value() >= m;
   });
 
-  protected increment(): void {
+  /** Keyboard bindings per ARIA spinbutton pattern. */
+  protected onKeydown(event: KeyboardEvent): void {
     if (this.disabled()) return;
-    const next = this.value() + this.step();
+
+    switch (event.key) {
+      case 'ArrowUp':
+        event.preventDefault();
+        this.increment();
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        this.decrement();
+        break;
+      case 'PageUp':
+        event.preventDefault();
+        this.incrementBy(this.largeStep());
+        break;
+      case 'PageDown':
+        event.preventDefault();
+        this.decrementBy(this.largeStep());
+        break;
+      case 'Home': {
+        event.preventDefault();
+        const minVal = this.min();
+        if (minVal !== null) this.value.set(minVal);
+        break;
+      }
+      case 'End': {
+        event.preventDefault();
+        const maxVal = this.max();
+        if (maxVal !== null) this.value.set(maxVal);
+        break;
+      }
+    }
+  }
+
+  protected increment(): void {
+    this.incrementBy(this.step());
+  }
+
+  protected decrement(): void {
+    this.decrementBy(this.step());
+  }
+
+  private incrementBy(amount: number): void {
+    if (this.disabled()) return;
+    const next = this.value() + amount;
     const m = this.max();
     this.value.set(m !== null ? Math.min(next, m) : next);
   }
 
-  protected decrement(): void {
+  private decrementBy(amount: number): void {
     if (this.disabled()) return;
-    const next = this.value() - this.step();
+    const next = this.value() - amount;
     const m = this.min();
     this.value.set(m !== null ? Math.max(next, m) : next);
   }

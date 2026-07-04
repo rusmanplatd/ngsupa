@@ -8,9 +8,12 @@ import {
   OnDestroy,
   inject,
   ElementRef,
+  viewChild,
+  AfterViewInit,
 } from '@angular/core';
 import { Overlay, OverlayRef, ConnectedPosition } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { LucideDynamicIcon } from '@lucide/angular';
 
 // ─────────────────────────────────────────────────────────────
@@ -107,15 +110,22 @@ interface CalendarDay {
           </div>
 
           <!-- Day grid -->
-          <div class="dp-day-grid" role="grid" aria-label="Calendar days">
+          <div
+            class="dp-day-grid"
+            role="grid"
+            aria-label="Calendar days"
+            (keydown)="onGridKeydown($event)"
+          >
             @for (day of calendarDays(); track day.date.toISOString()) {
               <button
                 type="button"
                 role="gridcell"
                 [attr.aria-selected]="day.isSelected || day.isRangeStart || day.isRangeEnd"
-                [attr.aria-disabled]="day.isDisabled"
-                [disabled]="day.isDisabled"
+                [attr.aria-disabled]="day.isDisabled || !day.isCurrentMonth"
+                [disabled]="day.isDisabled || !day.isCurrentMonth"
                 [attr.aria-label]="getDayAriaLabel(day.date)"
+                [attr.tabindex]="isFocusedDay(day.date) ? 0 : -1"
+                [attr.data-date]="day.date.toISOString()"
                 class="dp-day-cell"
                 [class.dp-day--other-month]="!day.isCurrentMonth"
                 [class.dp-day--disabled]="day.isDisabled"
@@ -124,8 +134,10 @@ interface CalendarDay {
                 [class.dp-day--range-start]="day.isRangeStart"
                 [class.dp-day--range-end]="day.isRangeEnd"
                 [class.dp-day--in-range]="day.isInRange"
+                [class.dp-day--focused]="isFocusedDay(day.date)"
                 (click)="onDayClick(day)"
                 (mouseenter)="onDayHover(day)"
+                (focus)="onDayFocus(day.date)"
               >
                 <span class="dp-day-number">{{ day.day }}</span>
                 <!-- Today dot indicator -->
@@ -431,6 +443,11 @@ interface CalendarDay {
       opacity: 0.5;
     }
 
+    .dp-day--focused:focus-visible {
+      outline: 2px solid var(--system-blue, #007aff);
+      outline-offset: 1px;
+    }
+
     .dp-day--today {
       font-weight: 600;
       color: var(--system-blue);
@@ -583,6 +600,8 @@ export class CalendarPanelComponent {
   readonly rangeStart = signal<Date | null>(null);
   readonly rangeEnd = signal<Date | null>(null);
   readonly hoveredDate = signal<Date | null>(null);
+  /** Tracks which day cell has roving tabindex focus (separate from selectedDate). */
+  protected readonly focusedDate = signal<Date | null>(null);
 
   readonly viewMonth = signal(new Date().getMonth());
   readonly viewYear = signal(new Date().getFullYear());
@@ -596,6 +615,9 @@ export class CalendarPanelComponent {
 
   // Static
   protected readonly currentActualYear = new Date().getFullYear();
+
+  // Injections
+  private readonly liveAnnouncer = inject(LiveAnnouncer);
 
   // ── Computed ────────────────────────────────────────────
 
@@ -817,6 +839,101 @@ export class CalendarPanelComponent {
     }
   }
 
+  protected onDayFocus(date: Date): void {
+    this.focusedDate.set(date);
+  }
+
+  /** Returns true if the given date is the current roving-tabindex focus target. */
+  protected isFocusedDay(date: Date): boolean {
+    const fd = this.focusedDate();
+    // Fallback to selectedDate / rangeStart / today if focusedDate not set
+    const target = fd ?? this.selectedDate() ?? this.rangeStart() ?? new Date();
+    return this.sameDay(date, target);
+  }
+
+  /**
+   * Grid-level keyboard handler implementing the ARIA grid pattern for a calendar:
+   * Arrow Left/Right: ±1 day
+   * Arrow Up/Down:    ±7 days (one week)
+   * PageUp/PageDown:  previous/next month
+   * Home/End:         start/end of current week
+   */
+  protected onGridKeydown(event: KeyboardEvent): void {
+    if (this.view() !== 'days') return;
+
+    const handled = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+                     'PageUp', 'PageDown', 'Home', 'End'];
+    if (!handled.includes(event.key)) return;
+    event.preventDefault();
+
+    const current = this.focusedDate() ?? this.selectedDate() ?? new Date();
+    let next: Date;
+
+    switch (event.key) {
+      case 'ArrowLeft':
+        next = this.addDays(current, -1);
+        break;
+      case 'ArrowRight':
+        next = this.addDays(current, 1);
+        break;
+      case 'ArrowUp':
+        next = this.addDays(current, -7);
+        break;
+      case 'ArrowDown':
+        next = this.addDays(current, 7);
+        break;
+      case 'PageUp':
+        next = this.addMonths(current, -1);
+        break;
+      case 'PageDown':
+        next = this.addMonths(current, 1);
+        break;
+      case 'Home': {
+        // Jump to Monday (or first day of week) of the current week
+        const dow = current.getDay();
+        const fdow = this.firstDayOfWeek();
+        const diff = (dow - fdow + 7) % 7;
+        next = this.addDays(current, -diff);
+        break;
+      }
+      case 'End': {
+        // Jump to Sunday (or last day of week) of the current week
+        const dow = current.getDay();
+        const fdow = this.firstDayOfWeek();
+        const diff = (6 - ((dow - fdow + 7) % 7));
+        next = this.addDays(current, diff);
+        break;
+      }
+      default:
+        return;
+    }
+
+    // Navigate to the month of the target date if necessary
+    if (next.getMonth() !== this.viewMonth() || next.getFullYear() !== this.viewYear()) {
+      this.viewMonth.set(next.getMonth());
+      this.viewYear.set(next.getFullYear());
+    }
+
+    this.focusedDate.set(next);
+
+    // Announce the new focused date
+    this.liveAnnouncer.announce(
+      new Intl.DateTimeFormat(this.locale(), {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+      }).format(next),
+      'polite'
+    );
+
+    // Move DOM focus to the button for the new date (after Angular renders)
+    requestAnimationFrame(() => {
+      const iso = next.toISOString();
+      const btn = document.querySelector<HTMLButtonElement>(
+        `[data-date="${iso}"]`
+      );
+      btn?.focus();
+    });
+  }
+
   protected clearSelection(): void {
     this.selectedDate.set(null);
     this.dateSelected.emit(null!);
@@ -828,11 +945,29 @@ export class CalendarPanelComponent {
     this.hoveredDate.set(null);
   }
 
+  private addDays(date: Date, days: number): Date {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
+  private addMonths(date: Date, months: number): Date {
+    const d = new Date(date);
+    const targetMonth = d.getMonth() + months;
+    d.setMonth(targetMonth);
+    // Guard against overshooting (e.g. Jan 31 + 1 month => Mar 3)
+    if (d.getMonth() !== ((targetMonth % 12) + 12) % 12) {
+      d.setDate(0); // last day of previous month
+    }
+    return d;
+  }
+
   // Public API for parent to set view to a specific date
   navigateTo(date: Date): void {
     this.viewMonth.set(date.getMonth());
     this.viewYear.set(date.getFullYear());
     this.yearPageStart.set(Math.floor(date.getFullYear() / 12) * 12);
+    this.focusedDate.set(date);
   }
 
   protected getDayAriaLabel(date: Date): string {
