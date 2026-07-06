@@ -15,6 +15,7 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { CheckboxComponent } from '../checkbox/checkbox';
 import { EmptyStateComponent } from '../empty-state/empty-state';
 
@@ -70,7 +71,7 @@ export class DataTableCellDirective {
 
 @Component({
   selector: 'app-data-table',
-  imports: [NgTemplateOutlet, LucideDynamicIcon, CheckboxComponent, EmptyStateComponent],
+  imports: [NgTemplateOutlet, LucideDynamicIcon, CheckboxComponent, EmptyStateComponent, DragDropModule],
   host: {
     class: 'block',
   },
@@ -226,7 +227,12 @@ export class DataTableCellDirective {
         </thead>
 
         <!-- ─── Body ──────────────────────────────────────── -->
-        <tbody>
+        <tbody
+          [class.draggable-tbody]="draggableRows()"
+          cdkDropList
+          [cdkDropListDisabled]="!draggableRows()"
+          (cdkDropListDropped)="onRowDrop($event)"
+        >
           @if (loading()) {
             <!-- Skeleton rows -->
             @for (i of skeletonRows; track i) {
@@ -269,6 +275,7 @@ export class DataTableCellDirective {
               <tr
                 role="row"
                 class="data-row"
+                [class.draggable-row]="draggableRows()"
                 [class.striped-row]="striped() && even"
                 [class.selected-row]="isRowSelected(row)"
                 [class.expanded-parent-row]="isRowExpanded(row)"
@@ -276,7 +283,16 @@ export class DataTableCellDirective {
                 [attr.aria-expanded]="expandable() ? isRowExpanded(row) : null"
                 [attr.aria-rowindex]="currentPageState().pageIndex * currentPageState().pageSize + idx + 1"
                 (click)="onRowClick(row, $event)"
+                cdkDrag
+                [cdkDragDisabled]="!draggableRows()"
+                [cdkDragData]="row"
               >
+                <!-- Drag handle -->
+                @if (draggableRows()) {
+                  <td class="drag-handle-cell" cdkDragHandle aria-hidden="true">
+                    <svg lucideIcon="grip-vertical" [size]="16" class="drag-handle-icon" />
+                  </td>
+                }
                 <!-- Expand toggle -->
                 @if (expandable()) {
                   <td class="expand-cell">
@@ -428,12 +444,15 @@ export class DataTableComponent<T extends Record<string, unknown>> {
   readonly emptyTitle = input('No data');
   readonly emptyDescription = input<string | null>(null);
   readonly expandedRowTemplate = input<TemplateRef<{ $implicit: T }> | null>(null);
+  /** Enable drag-to-reorder rows. Emits rowReordered when a row is dropped. */
+  readonly draggableRows = input(false);
 
   // ── Outputs ─────────────────────────────────────────────────
   readonly sortChange = output<SortState>();
   readonly selectionChange = output<T[]>();
   readonly rowClick = output<T>();
   readonly pageChange = output<PageState>();
+  readonly rowReordered = output<{ previousIndex: number; currentIndex: number; data: T[] }>();
 
   // ── Content Children (cell templates) ───────────────────────
   readonly cellTemplates = contentChildren(DataTableCellDirective);
@@ -793,5 +812,46 @@ export class DataTableComponent<T extends Record<string, unknown>> {
     document.removeEventListener('touchend', this.resizeMouseUpHandler);
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+  }
+
+  // ── Drag & Drop ─────────────────────────────────────────────
+
+  protected onRowDrop(event: CdkDragDrop<T[]>): void {
+    if (event.previousIndex === event.currentIndex) return;
+
+    // The event indices refer to the paginated view. We need to find the actual
+    // indices in the original data array to reorder it correctly.
+    const paginatedItems = this.paginatedData();
+    const itemToMove = paginatedItems[event.previousIndex];
+    if (!itemToMove) return;
+
+    const dataArr = [...this.data()];
+    const originalPrevIndex = dataArr.findIndex(
+      (r) => this.trackByFn()(r) === this.trackByFn()(itemToMove)
+    );
+
+    let originalCurrentIndex: number;
+    if (event.currentIndex === paginatedItems.length) {
+      // Moved to the very end of the current page
+      const prevItem = paginatedItems[event.currentIndex - 1];
+      const prevOrigIdx = dataArr.findIndex(
+        (r) => this.trackByFn()(r) === this.trackByFn()(prevItem)
+      );
+      originalCurrentIndex = prevOrigIdx + 1;
+    } else {
+      const targetItem = paginatedItems[event.currentIndex];
+      originalCurrentIndex = dataArr.findIndex(
+        (r) => this.trackByFn()(r) === this.trackByFn()(targetItem)
+      );
+    }
+
+    if (originalPrevIndex > -1 && originalCurrentIndex > -1) {
+      moveItemInArray(dataArr, originalPrevIndex, originalCurrentIndex);
+      this.rowReordered.emit({
+        previousIndex: originalPrevIndex,
+        currentIndex: originalCurrentIndex,
+        data: dataArr,
+      });
+    }
   }
 }

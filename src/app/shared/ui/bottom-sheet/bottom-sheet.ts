@@ -11,7 +11,14 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { Dialog, DialogRef } from '@angular/cdk/dialog';
+import { A11yModule } from '@angular/cdk/a11y';
 import { LucideDynamicIcon } from '@lucide/angular';
+import {
+  trigger,
+  style,
+  animate,
+  transition,
+} from '@angular/animations';
 
 export interface BottomSheetAction {
   id: string;
@@ -49,19 +56,39 @@ export class BottomSheetService {
 
 @Component({
   selector: 'app-bottom-sheet-panel',
-  imports: [LucideDynamicIcon],
+  imports: [LucideDynamicIcon, A11yModule],
   host: {
     class: 'block',
     '(touchstart)': 'onTouchStart($event)',
     '(touchmove)': 'onTouchMove($event)',
     '(touchend)': 'onTouchEnd($event)',
   },
+  animations: [
+    trigger('sheetAnim', [
+      transition(':enter', [
+        style({ transform: 'translateY(100%)' }),
+        animate(
+          '350ms cubic-bezier(0.2, 0, 0, 1)',
+          style({ transform: 'translateY(0)' })
+        ),
+      ]),
+      transition(':leave', [
+        animate(
+          '300ms cubic-bezier(0.4, 0, 1, 1)',
+          style({ transform: 'translateY(100%)' })
+        ),
+      ]),
+    ]),
+  ],
   template: `
     <div
+      @sheetAnim
       #sheetEl
+      cdkTrapFocus
+      cdkTrapFocusAutoCapture
       class="rounded-t-3xl bg-[var(--surface-elevated)] shadow-xl overflow-hidden"
-      [style.transform]="'translateY(' + dragOffset() + 'px)'"
-      [style.transition]="isDragging() ? 'none' : 'transform 0.35s cubic-bezier(0.2, 0, 0, 1)'"
+      [style.transform]="isDragging() ? 'translateY(' + dragOffset() + 'px)' : null"
+      [style.transition]="isDragging() ? 'none' : null"
     >
       <!-- Drag Handle -->
       @if (config.showDragHandle !== false) {

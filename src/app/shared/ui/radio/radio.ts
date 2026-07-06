@@ -1,4 +1,8 @@
-import { Component, model, input, computed, output, viewChildren, ElementRef } from '@angular/core';
+import { Component, model, input, computed, output, viewChildren, ElementRef, forwardRef, signal } from '@angular/core';
+import {
+  ControlValueAccessor,
+  NG_VALUE_ACCESSOR,
+} from '@angular/forms';
 
 export interface RadioOption {
   value: string;
@@ -14,6 +18,13 @@ export interface RadioOption {
     '[attr.aria-label]': 'ariaLabel()',
     class: 'block',
   },
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => RadioGroupComponent),
+      multi: true,
+    },
+  ],
   template: `
     <div [class]="layoutClasses()">
       @for (option of options(); track option.value; let i = $index) {
@@ -21,12 +32,13 @@ export interface RadioOption {
           #radioBtn
           type="button"
           role="radio"
-          [attr.aria-checked]="value() === option.value"
-          [attr.aria-disabled]="option.disabled || disabled()"
-          [disabled]="option.disabled || disabled()"
+          [attr.aria-checked]="internalValue() === option.value"
+          [attr.aria-disabled]="option.disabled || isDisabled()"
+          [disabled]="option.disabled || isDisabled()"
           class="flex items-start gap-3 text-left transition-all duration-fast"
           [class]="itemClasses(option)"
           (click)="select(option.value)"
+          (blur)="onBlur()"
           (keydown.arrowDown)="focusNext(i)"
           (keydown.arrowUp)="focusPrev(i)"
           (keydown.arrowRight)="focusNext(i)"
@@ -36,9 +48,9 @@ export interface RadioOption {
           <span
             class="radio-circle relative mt-0.5 inline-flex shrink-0 items-center justify-center rounded-full border-2 transition-all duration-normal"
             [class]="circleClasses(option)"
-            [style.box-shadow]="value() === option.value ? 'var(--form-control-glow)' : 'none'"
+            [style.box-shadow]="internalValue() === option.value ? 'var(--form-control-glow)' : 'none'"
           >
-            @if (value() === option.value) {
+            @if (internalValue() === option.value) {
               <span class="block w-3 h-3 rounded-full bg-system-blue animate-radio-fill"></span>
             }
           </span>
@@ -71,7 +83,7 @@ export interface RadioOption {
     }
   `,
 })
-export class RadioGroupComponent {
+export class RadioGroupComponent implements ControlValueAccessor {
   readonly options = input.required<RadioOption[]>();
   readonly value = model.required<string>();
   readonly orientation = input<'vertical' | 'horizontal'>('vertical');
@@ -79,7 +91,43 @@ export class RadioGroupComponent {
   readonly disabled = input(false);
   readonly ariaLabel = input('');
 
+  /** Internal value signal — single source of truth for both model() and CVA. */
+  protected readonly internalValue = signal('');
+  private readonly isDisabledCva = signal(false);
+
   private readonly radioBtns = viewChildren<ElementRef<HTMLButtonElement>>('radioBtn');
+
+  protected readonly isDisabled = computed(
+    () => this.disabled() || this.isDisabledCva()
+  );
+
+  // ── ControlValueAccessor ────────────────────────────────────
+  private onChange: (val: string) => void = () => {};
+  private onTouchedFn: () => void = () => {};
+
+  writeValue(value: string): void {
+    const v = value ?? '';
+    this.internalValue.set(v);
+    this.value.set(v);
+  }
+
+  registerOnChange(fn: (val: string) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouchedFn = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.isDisabledCva.set(isDisabled);
+  }
+
+  protected onBlur(): void {
+    this.onTouchedFn();
+  }
+
+  // ── Layout & styling ────────────────────────────────────────
 
   protected readonly layoutClasses = computed(() => {
     if (this.orientation() === 'horizontal') {
@@ -92,10 +140,10 @@ export class RadioGroupComponent {
   });
 
   protected itemClasses(option: RadioOption): string {
-    const isDisabled = option.disabled || this.disabled();
-    const isSelected = this.value() === option.value;
+    const isItemDisabled = option.disabled || this.isDisabled();
+    const isSelected = this.internalValue() === option.value;
 
-    if (isDisabled) {
+    if (isItemDisabled) {
       return 'opacity-40 cursor-not-allowed';
     }
 
@@ -111,7 +159,7 @@ export class RadioGroupComponent {
   }
 
   protected circleClasses(option: RadioOption): string {
-    const isSelected = this.value() === option.value;
+    const isSelected = this.internalValue() === option.value;
     const base = 'w-[22px] h-[22px]';
     return isSelected
       ? `${base} border-system-blue`
@@ -119,7 +167,10 @@ export class RadioGroupComponent {
   }
 
   protected select(val: string): void {
+    this.internalValue.set(val);
     this.value.set(val);
+    this.onChange(val);
+    this.onTouchedFn();
   }
 
   protected focusNext(current: number): void {
@@ -128,7 +179,7 @@ export class RadioGroupComponent {
     while (opts[next].disabled && next !== current) {
       next = (next + 1) % opts.length;
     }
-    this.value.set(opts[next].value);
+    this.select(opts[next].value);
     this.radioBtns()[next]?.nativeElement.focus();
   }
 
@@ -138,7 +189,7 @@ export class RadioGroupComponent {
     while (opts[prev].disabled && prev !== current) {
       prev = (prev - 1 + opts.length) % opts.length;
     }
-    this.value.set(opts[prev].value);
+    this.select(opts[prev].value);
     this.radioBtns()[prev]?.nativeElement.focus();
   }
 }

@@ -1,4 +1,8 @@
-import { Component, model, input, computed } from '@angular/core';
+import { Component, model, input, computed, forwardRef, signal } from '@angular/core';
+import {
+  ControlValueAccessor,
+  NG_VALUE_ACCESSOR,
+} from '@angular/forms';
 
 @Component({
   selector: 'app-toggle',
@@ -7,12 +11,20 @@ import { Component, model, input, computed } from '@angular/core';
     '(click)': 'toggle()',
     '(keydown.space)': '$event.preventDefault(); toggle()',
     '(keydown.enter)': 'toggle()',
-    '[attr.tabindex]': 'disabled() ? -1 : 0',
+    '(blur)': 'onBlur()',
+    '[attr.tabindex]': 'isDisabled() ? -1 : 0',
     role: 'switch',
-    '[attr.aria-checked]': 'checked()',
-    '[attr.aria-disabled]': 'disabled()',
+    '[attr.aria-checked]': 'internalChecked()',
+    '[attr.aria-disabled]': 'isDisabled()',
     '[attr.aria-label]': 'ariaLabel() || label()',
   },
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => ToggleComponent),
+      multi: true,
+    },
+  ],
   template: `
     <span
       class="toggle-track relative inline-flex shrink-0 rounded-full transition-all duration-normal"
@@ -55,34 +67,74 @@ import { Component, model, input, computed } from '@angular/core';
     }
   `,
 })
-export class ToggleComponent {
+export class ToggleComponent implements ControlValueAccessor {
   readonly checked = model(false);
   readonly label = input('');
   readonly disabled = input(false);
   readonly ariaLabel = input<string | null>(null);
 
+  /** Internal checked signal — single source of truth for both model() and CVA. */
+  protected readonly internalChecked = signal(false);
+  private readonly isDisabledCva = signal(false);
+
+  protected readonly isDisabled = computed(
+    () => this.disabled() || this.isDisabledCva()
+  );
+
+  // ── ControlValueAccessor ────────────────────────────────────
+  private onChange: (val: boolean) => void = () => {};
+  private onTouchedFn: () => void = () => {};
+
+  writeValue(value: boolean): void {
+    const v = !!value;
+    this.internalChecked.set(v);
+    this.checked.set(v);
+  }
+
+  registerOnChange(fn: (val: boolean) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouchedFn = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.isDisabledCva.set(isDisabled);
+  }
+
+  protected onBlur(): void {
+    this.onTouchedFn();
+  }
+
+  // ── Computed ────────────────────────────────────────────────
+
   protected readonly trackClasses = computed(() => {
-    const on = this.checked();
+    const on = this.internalChecked();
     return on
       ? 'bg-system-blue w-[51px] h-[31px] p-[2px]'
       : 'bg-[var(--fill-secondary)] w-[51px] h-[31px] p-[2px]';
   });
 
   protected readonly trackShadow = computed(() => {
-    return this.checked()
+    return this.internalChecked()
       ? 'none'
       : 'var(--form-toggle-inset)';
   });
 
   protected readonly thumbClasses = computed(() => {
-    const on = this.checked();
+    const on = this.internalChecked();
     return on
       ? 'w-[27px] h-[27px] translate-x-[20px]'
       : 'w-[27px] h-[27px] translate-x-0';
   });
 
   protected toggle(): void {
-    if (this.disabled()) return;
-    this.checked.update((v) => !v);
+    if (this.isDisabled()) return;
+    const next = !this.internalChecked();
+    this.internalChecked.set(next);
+    this.checked.set(next);
+    this.onChange(next);
+    this.onTouchedFn();
   }
 }

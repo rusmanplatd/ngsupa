@@ -10,13 +10,14 @@ import {
   PLATFORM_ID,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { A11yModule } from '@angular/cdk/a11y';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { KbdComponent } from '../kbd/kbd';
 import { CommandPaletteService, Command } from './command-palette.service';
 
 @Component({
   selector: 'app-command-palette',
-  imports: [LucideDynamicIcon, KbdComponent],
+  imports: [LucideDynamicIcon, KbdComponent, A11yModule],
   host: {
     class: 'contents',
     '(document:keydown)': 'onKeydown($event)',
@@ -37,7 +38,11 @@ import { CommandPaletteService, Command } from './command-palette.service';
         aria-modal="true"
         aria-label="Command palette"
       >
-        <div class="cmdk-container">
+        <div
+          class="cmdk-container"
+          cdkTrapFocus
+          cdkTrapFocusAutoCapture
+        >
           <!-- Search Header -->
           <div class="cmdk-header">
             <svg

@@ -1,4 +1,8 @@
-import { Component, input, model, computed, signal, viewChild, ElementRef, afterRenderEffect } from '@angular/core';
+import { Component, input, model, computed, signal, viewChild, ElementRef, afterRenderEffect, forwardRef } from '@angular/core';
+import {
+  ControlValueAccessor,
+  NG_VALUE_ACCESSOR,
+} from '@angular/forms';
 
 @Component({
   selector: 'app-slider',
@@ -6,6 +10,13 @@ import { Component, input, model, computed, signal, viewChild, ElementRef, after
     class: 'block',
     '[attr.aria-label]': 'label() || ariaLabel()',
   },
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => SliderComponent),
+      multi: true,
+    },
+  ],
   template: `
     @if (label() || showValue()) {
       <div class="flex items-center justify-between mb-2">
@@ -34,13 +45,14 @@ import { Component, input, model, computed, signal, viewChild, ElementRef, after
           [min]="min()"
           [max]="max()"
           [step]="step()"
-          [value]="value()"
-          [disabled]="disabled()"
+          [value]="internalValue()"
+          [disabled]="isDisabled()"
           (input)="onInput($event)"
+          (blur)="onBlur()"
           class="slider-input w-full"
           [attr.aria-valuemin]="min()"
           [attr.aria-valuemax]="max()"
-          [attr.aria-valuenow]="value()"
+          [attr.aria-valuenow]="internalValue()"
           [attr.aria-valuetext]="displayValue()"
         />
       </div>
@@ -136,7 +148,7 @@ import { Component, input, model, computed, signal, viewChild, ElementRef, after
     }
   `,
 })
-export class SliderComponent {
+export class SliderComponent implements ControlValueAccessor {
   readonly value = model(0);
   readonly min = input(0);
   readonly max = input(100);
@@ -152,10 +164,40 @@ export class SliderComponent {
 
   private readonly sliderElRef = viewChild<ElementRef<HTMLInputElement>>('sliderEl');
 
+  /** Internal value — single source of truth for both model() and CVA. */
+  protected readonly internalValue = signal(0);
+  private readonly isDisabledCva = signal(false);
+
+  protected readonly isDisabled = computed(
+    () => this.disabled() || this.isDisabledCva()
+  );
+
   protected readonly displayValue = computed(() => {
-    const v = this.value();
+    const v = this.internalValue();
     return this.suffix() ? `${v}${this.suffix()}` : `${v}`;
   });
+
+  // ── ControlValueAccessor ────────────────────────────────────
+  private onChange: (val: number) => void = () => {};
+  private onTouchedFn: () => void = () => {};
+
+  writeValue(value: number): void {
+    const v = value ?? 0;
+    this.internalValue.set(v);
+    this.value.set(v);
+  }
+
+  registerOnChange(fn: (val: number) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouchedFn = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.isDisabledCva.set(isDisabled);
+  }
 
   constructor() {
     afterRenderEffect(() => {
@@ -165,14 +207,20 @@ export class SliderComponent {
 
   protected onInput(event: Event): void {
     const val = Number((event.target as HTMLInputElement).value);
+    this.internalValue.set(val);
     this.value.set(val);
+    this.onChange(val);
     this.updateFillPercentage();
+  }
+
+  protected onBlur(): void {
+    this.onTouchedFn();
   }
 
   private updateFillPercentage(): void {
     const el = this.sliderElRef()?.nativeElement;
     if (!el) return;
-    const pct = ((this.value() - this.min()) / (this.max() - this.min())) * 100;
+    const pct = ((this.internalValue() - this.min()) / (this.max() - this.min())) * 100;
     el.style.setProperty('--fill-pct', `${pct}%`);
   }
 }

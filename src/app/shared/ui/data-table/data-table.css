@@ -503,3 +503,58 @@ table {
     justify-content: center;
   }
 }
+
+/* ── Drag & Drop ────────────────────────────────────────── */
+.draggable-row {
+  cursor: grab;
+}
+
+.draggable-row:active {
+  cursor: grabbing;
+}
+
+.drag-handle-cell {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  text-align: center;
+  color: var(--text-quaternary);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity var(--duration-fast);
+}
+
+.draggable-row:hover .drag-handle-cell {
+  opacity: 1;
+}
+
+.drag-handle-cell:active,
+.draggable-row:active .drag-handle-cell {
+  cursor: grabbing;
+}
+
+.cdk-drag-preview {
+  display: table;
+  background: var(--surface-elevated);
+  box-shadow: 0 10px 40px -10px oklch(0% 0 0 / 0.3);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  backdrop-filter: blur(20px);
+}
+
+.cdk-drag-preview td {
+  padding: 12px 16px;
+  border-bottom: none !important;
+}
+
+.cdk-drag-placeholder {
+  opacity: 0;
+}
+
+.cdk-drag-animating {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.draggable-tbody.cdk-drop-list-dragging .draggable-row:not(.cdk-drag-placeholder) {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}

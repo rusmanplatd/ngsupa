@@ -6,7 +6,16 @@ import {
   signal,
   viewChild,
   computed,
+  forwardRef,
 } from '@angular/core';
+import {
+  ControlValueAccessor,
+  NG_VALUE_ACCESSOR,
+  NG_VALIDATORS,
+  AbstractControl,
+  ValidationErrors,
+  Validator,
+} from '@angular/forms';
 import { LucideDynamicIcon } from '@lucide/angular';
 
 export type InputState = 'default' | 'error' | 'success';
@@ -18,6 +27,18 @@ export type InputState = 'default' | 'error' | 'success';
     class: 'block',
     '(click)': 'focusInput()',
   },
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => InputComponent),
+      multi: true,
+    },
+    {
+      provide: NG_VALIDATORS,
+      useExisting: forwardRef(() => InputComponent),
+      multi: true,
+    },
+  ],
   template: `
     <div
       class="relative flex items-center rounded-xl border transition-all duration-normal"
@@ -38,7 +59,7 @@ export type InputState = 'default' | 'error' | 'success';
           [id]="inputId()"
           [type]="currentType()"
           [placeholder]="' '"
-          [disabled]="disabled()"
+          [disabled]="isDisabled()"
           [readonly]="readonly()"
           [attr.aria-invalid]="error() ? 'true' : null"
           [attr.aria-required]="required() || null"
@@ -46,10 +67,10 @@ export type InputState = 'default' | 'error' | 'success';
           [attr.autocomplete]="autocomplete()"
           [attr.inputmode]="resolvedInputMode()"
           [attr.maxlength]="maxLength() || null"
-          [value]="value()"
+          [value]="internalValue()"
           (input)="onInput($event)"
+          (blur)="onBlur()"
           (focus)="focused.set(true)"
-          (blur)="focused.set(false)"
           class="peer block w-full bg-transparent px-3 pb-2 pt-5 text-base text-[var(--text-primary)] outline-none placeholder-transparent"
         />
         <label
@@ -73,7 +94,7 @@ export type InputState = 'default' | 'error' | 'success';
           <svg [lucideIcon]="showPassword() ? 'eye-off' : 'eye'" [size]="18" />
         </button>
       }
-      @if (clearable() && value() && type() !== 'password') {
+      @if (clearable() && internalValue() && type() !== 'password') {
         <button
           type="button"
           tabindex="-1"
@@ -85,13 +106,14 @@ export type InputState = 'default' | 'error' | 'success';
         </button>
       }
       @if (state() === 'success' && !focused()) {
-        <svg lucideIcon="check" [size]="18" class="mr-3 text-system-green shrink-0 success-icon" />
+        <svg lucideIcon="check" [size]="18" class="mr-3 text-system-green shrink-0 success-icon" aria-hidden="true" />
       }
       @if (trailingIcon() && type() !== 'password' && state() !== 'success') {
         <svg
           [lucideIcon]="trailingIcon()!"
           [size]="18"
           class="mr-3 text-[var(--text-tertiary)] shrink-0"
+          aria-hidden="true"
         />
       }
     </div>
@@ -144,7 +166,7 @@ export type InputState = 'default' | 'error' | 'success';
     }
   `,
 })
-export class InputComponent {
+export class InputComponent implements ControlValueAccessor, Validator {
   readonly label = input.required<string>();
   readonly type = input<'text' | 'email' | 'password' | 'tel' | 'url' | 'number'>('text');
   readonly value = input('');
@@ -169,7 +191,46 @@ export class InputComponent {
   protected readonly focused = signal(false);
   protected readonly showPassword = signal(false);
   protected readonly charCount = signal(0);
+  protected readonly internalValue = signal('');
+  protected readonly isTouched = signal(false);
+  protected readonly isDisabledCva = signal(false);
+
   private readonly inputElRef = viewChild<ElementRef<HTMLInputElement>>('inputEl');
+
+  // ── ControlValueAccessor ────────────────────────────────────
+  private onChange: (val: string) => void = () => {};
+  private onTouchedFn: () => void = () => {};
+
+  writeValue(value: string): void {
+    const v = value ?? '';
+    this.internalValue.set(v);
+    this.charCount.set(v.length);
+  }
+
+  registerOnChange(fn: (val: string) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouchedFn = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.isDisabledCva.set(isDisabled);
+  }
+
+  // ── Validator ───────────────────────────────────────────────
+  validate(_control: AbstractControl): ValidationErrors | null {
+    if (this.error()) {
+      return { externalError: this.error() };
+    }
+    return null;
+  }
+
+  // ── Internal state ──────────────────────────────────────────
+  protected readonly isDisabled = computed(
+    () => this.disabled() || this.isDisabledCva()
+  );
 
   protected readonly currentType = computed(() => {
     if (this.type() === 'password' && this.showPassword()) return 'text';
@@ -232,12 +293,22 @@ export class InputComponent {
 
   protected onInput(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
+    this.internalValue.set(val);
     this.charCount.set(val.length);
+    this.onChange(val);
     this.valueChange.emit(val);
   }
 
+  protected onBlur(): void {
+    this.focused.set(false);
+    this.isTouched.set(true);
+    this.onTouchedFn();
+  }
+
   protected onClear(): void {
+    this.internalValue.set('');
     this.charCount.set(0);
+    this.onChange('');
     this.valueChange.emit('');
     this.cleared.emit();
     this.inputElRef()?.nativeElement.focus();

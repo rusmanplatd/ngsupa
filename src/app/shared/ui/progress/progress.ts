@@ -1,4 +1,5 @@
-import { Component, input, computed } from '@angular/core';
+import { Component, input, computed, inject, effect } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 
 @Component({
   selector: 'app-progress',
@@ -102,6 +103,11 @@ export class ProgressComponent {
   readonly showLabel = input(false);
   readonly shape = input<'bar' | 'ring'>('bar');
   readonly ringSize = input(64);
+  /** Announce progress changes to screen readers. Set to a milestone interval (e.g. 25 = every 25%). */
+  readonly announceEvery = input(25);
+
+  private readonly liveAnnouncer = inject(LiveAnnouncer);
+  private lastAnnouncedMilestone = -1;
 
   protected readonly percentage = computed(() =>
     Math.round((this.value() / this.max()) * 100)
@@ -126,6 +132,27 @@ export class ProgressComponent {
     };
     return colorMap[this.color()];
   });
+
+  constructor() {
+    // Announce progress to screen readers at milestone intervals
+    effect(() => {
+      if (!this.determinate()) return;
+      const pct = this.percentage();
+      const interval = this.announceEvery();
+      const milestone = Math.floor(pct / interval) * interval;
+      if (milestone !== this.lastAnnouncedMilestone && milestone > 0) {
+        this.lastAnnouncedMilestone = milestone;
+        const labelStr = this.label() ? `${this.label()}: ` : '';
+        this.liveAnnouncer.announce(`${labelStr}${pct}%`, 'polite');
+      }
+      // Announce completion
+      if (pct >= 100 && this.lastAnnouncedMilestone !== 100) {
+        this.lastAnnouncedMilestone = 100;
+        const labelStr = this.label() ? `${this.label()} ` : '';
+        this.liveAnnouncer.announce(`${labelStr}complete`, 'assertive');
+      }
+    });
+  }
 
   // Ring helpers
   protected readonly ringStroke = computed(() => {

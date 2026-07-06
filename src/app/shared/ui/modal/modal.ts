@@ -1,8 +1,14 @@
-import { Component, inject, input, output, TemplateRef, signal } from '@angular/core';
+import { Component, inject, input, output, signal, effect } from '@angular/core';
 import { Dialog, DialogRef, DialogModule } from '@angular/cdk/dialog';
+import { A11yModule, LiveAnnouncer } from '@angular/cdk/a11y';
 import { Service } from '@angular/core';
 import { LucideDynamicIcon } from '@lucide/angular';
-import { ButtonComponent } from '../button/button';
+import {
+  trigger,
+  style,
+  animate,
+  transition,
+} from '@angular/animations';
 
 @Service()
 export class ModalService {
@@ -27,14 +33,37 @@ export class ModalService {
 
 @Component({
   selector: 'app-modal',
-  imports: [LucideDynamicIcon],
+  imports: [LucideDynamicIcon, A11yModule],
   host: {
     class: 'block',
     role: 'dialog',
     'aria-modal': 'true',
+    '[attr.aria-labelledby]': 'titleId()',
   },
+  animations: [
+    trigger('modalAnim', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'scale(0.95) translateY(-8px)' }),
+        animate(
+          '250ms cubic-bezier(0.2, 0, 0, 1)',
+          style({ opacity: 1, transform: 'scale(1) translateY(0)' })
+        ),
+      ]),
+      transition(':leave', [
+        animate(
+          '200ms cubic-bezier(0.4, 0, 1, 1)',
+          style({ opacity: 0, transform: 'scale(0.96) translateY(-4px)' })
+        ),
+      ]),
+    ]),
+  ],
   template: `
-    <div class="rounded-2xl bg-[var(--surface-elevated)] shadow-xl overflow-hidden max-h-[85vh] flex flex-col">
+    <div
+      @modalAnim
+      cdkTrapFocus
+      cdkTrapFocusAutoCapture
+      class="rounded-2xl bg-[var(--surface-elevated)] shadow-xl overflow-hidden max-h-[85vh] flex flex-col"
+    >
       <!-- Header -->
       <div class="flex items-center justify-between border-b border-[var(--separator)] px-6 py-4">
         <h2 class="text-lg font-semibold text-[var(--text-primary)]" [id]="titleId()">

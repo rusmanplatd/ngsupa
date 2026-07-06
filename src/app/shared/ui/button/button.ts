@@ -1,4 +1,5 @@
-import { Component, input, computed } from '@angular/core';
+import { Component, input, computed, inject, effect } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { SpinnerComponent } from '../spinner/spinner';
 
 export type ButtonVariant = 'filled' | 'tinted' | 'plain' | 'destructive' | 'ghost' | 'gray';
@@ -62,6 +63,26 @@ export class ButtonComponent {
   readonly loading = input(false);
   readonly disabled = input(false);
   readonly rounded = input(false);
+  /** Custom loading announcement text for screen readers. */
+  readonly loadingLabel = input('Loading…');
+  /** Custom done announcement text for screen readers. */
+  readonly loadingDoneLabel = input('Done');
+
+  private readonly liveAnnouncer = inject(LiveAnnouncer);
+  private wasLoading = false;
+
+  constructor() {
+    // Announce loading state transitions to screen readers
+    effect(() => {
+      const isLoading = this.loading();
+      if (isLoading && !this.wasLoading) {
+        this.liveAnnouncer.announce(this.loadingLabel(), 'polite');
+      } else if (!isLoading && this.wasLoading) {
+        this.liveAnnouncer.announce(this.loadingDoneLabel(), 'polite');
+      }
+      this.wasLoading = isLoading;
+    });
+  }
 
   protected readonly isDisabled = computed(() => this.disabled() || this.loading());
 

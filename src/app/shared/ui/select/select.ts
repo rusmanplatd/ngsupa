@@ -11,7 +11,12 @@ import {
   effect,
   ViewContainerRef,
   TemplateRef,
+  forwardRef,
 } from '@angular/core';
+import {
+  ControlValueAccessor,
+  NG_VALUE_ACCESSOR,
+} from '@angular/forms';
 import { Overlay, OverlayRef, ConnectedPosition } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
@@ -41,6 +46,13 @@ export interface SelectGroup {
     class: 'block',
     '(document:keydown)': 'onDocumentKeydown($event)',
   },
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => SelectComponent),
+      multi: true,
+    },
+  ],
   template: `
     <!-- ─── Trigger ─────────────────────────────────────── -->
     <button
@@ -443,7 +455,7 @@ export interface SelectGroup {
     }
   `,
 })
-export class SelectComponent implements OnDestroy {
+export class SelectComponent implements OnDestroy, ControlValueAccessor {
   // ── Inputs ──────────────────────────────────────────────────
   readonly label = input.required<string>();
   readonly options = input<SelectOption[]>([]);
@@ -490,6 +502,34 @@ export class SelectComponent implements OnDestroy {
   private readonly triggerElRef = viewChild<ElementRef<HTMLButtonElement>>('triggerEl');
   private readonly panelTemplateRef = viewChild<TemplateRef<unknown>>('panelTemplate');
   private readonly searchInputRef = viewChild<ElementRef<HTMLInputElement>>('searchInput');
+
+  // ── CVA state ───────────────────────────────────────────────
+  private cvgOnChange: (val: string | string[]) => void = () => {};
+  private cvaOnTouched: () => void = () => {};
+  private readonly isDisabledCva = signal(false);
+
+  // ── ControlValueAccessor ────────────────────────────────────
+  writeValue(value: string | string[] | null): void {
+    if (this.multiple()) {
+      const vs = Array.isArray(value) ? value : value ? [value] : [];
+      this.internalValues.set(vs);
+    } else {
+      const v = typeof value === 'string' ? value : '';
+      this.internalValues.set(v ? [v] : []);
+    }
+  }
+
+  registerOnChange(fn: (val: string | string[]) => void): void {
+    this.cvgOnChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.cvaOnTouched = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.isDisabledCva.set(isDisabled);
+  }
 
   // ── Sync input values to internal state ─────────────────────
   constructor() {
@@ -751,6 +791,8 @@ export class SelectComponent implements OnDestroy {
     this.typeaheadBuffer = '';
     if (this.typeaheadTimer) clearTimeout(this.typeaheadTimer);
     this.closed.emit();
+    // Notify form that the field was touched (panel closed)
+    this.cvaOnTouched();
     // Return focus to trigger
     this.triggerElRef()?.nativeElement.focus();
   }
@@ -771,9 +813,11 @@ export class SelectComponent implements OnDestroy {
         return [...vals, option.value];
       });
       this.valuesChange.emit(this.internalValues());
+      this.cvgOnChange(this.internalValues());
     } else {
       this.internalValues.set([option.value]);
       this.valueChange.emit(option.value);
+      this.cvgOnChange(option.value);
       this.close();
     }
   }
@@ -782,6 +826,7 @@ export class SelectComponent implements OnDestroy {
     event.stopPropagation();
     this.internalValues.update((vals) => vals.filter((v) => v !== value));
     this.valuesChange.emit(this.internalValues());
+    this.cvgOnChange(this.internalValues());
   }
 
   protected onClear(event: Event): void {
@@ -789,14 +834,17 @@ export class SelectComponent implements OnDestroy {
     this.internalValues.set([]);
     if (this.multiple()) {
       this.valuesChange.emit([]);
+      this.cvgOnChange([]);
     } else {
       this.valueChange.emit('');
+      this.cvgOnChange('');
     }
   }
 
   protected clearAll(): void {
     this.internalValues.set([]);
     this.valuesChange.emit([]);
+    this.cvgOnChange([]);
   }
 
   // ── Search Logic ────────────────────────────────────────────

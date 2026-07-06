@@ -1,4 +1,5 @@
-import { Component, input, signal, computed } from '@angular/core';
+import { Component, input, signal, computed, PLATFORM_ID, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { LucideDynamicIcon } from '@lucide/angular';
 
 export interface AccordionItem {
@@ -47,7 +48,7 @@ export interface AccordionItem {
             />
           </button>
 
-          <!-- Panel / Content -->
+          <!-- Panel / Content — lazy: only rendered once the item has been opened at least once -->
           <div
             [id]="'accordion-panel-' + item.id"
             role="tabpanel"
@@ -55,9 +56,11 @@ export interface AccordionItem {
             class="accordion-panel"
             [class.accordion-panel--open]="isOpen(item.id)"
           >
-            <div class="px-4 pb-4 pt-1 text-sm text-[var(--text-secondary)] leading-relaxed">
-              {{ item.content }}
-            </div>
+            @if (hasBeenOpened(item.id)) {
+              <div class="accordion-panel__content px-4 pb-4 pt-1 text-sm text-[var(--text-secondary)] leading-relaxed">
+                {{ item.content }}
+              </div>
+            }
           </div>
         </div>
 
@@ -82,6 +85,25 @@ export interface AccordionItem {
     .accordion-panel--open {
       grid-template-rows: 1fr;
     }
+
+    /* Fade-in content when panel opens */
+    .accordion-panel__content {
+      animation: accordion-content-in 0.2s var(--ease-default);
+    }
+
+    @keyframes accordion-content-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .accordion-panel {
+        transition-duration: 0.01ms !important;
+      }
+      .accordion-panel__content {
+        animation: none !important;
+      }
+    }
   `,
 })
 export class AccordionComponent {
@@ -89,11 +111,25 @@ export class AccordionComponent {
   readonly multiple = input(false);
   readonly variant = input<'default' | 'separated'>('default');
   readonly ariaLabel = input('Accordion');
+  /**
+   * When true, panel content is only rendered after the first open — improving
+   * initial page load performance for content-heavy panels.
+   * Once opened, content stays in the DOM to preserve scroll/focus state.
+   */
+  readonly lazy = input(false);
 
   private readonly openIds = signal<Set<string>>(new Set());
+  /** Tracks which panels have been opened at least once (for lazy rendering). */
+  private readonly everOpenedIds = signal<Set<string>>(new Set());
 
   isOpen(id: string): boolean {
     return this.openIds().has(id);
+  }
+
+  /** Returns true if the panel should render its content (lazy-aware). */
+  hasBeenOpened(id: string): boolean {
+    if (!this.lazy()) return true;
+    return this.everOpenedIds().has(id);
   }
 
   toggle(id: string): void {
@@ -104,6 +140,8 @@ export class AccordionComponent {
       } else {
         if (!this.multiple()) next.clear();
         next.add(id);
+        // Mark as ever-opened for lazy rendering
+        this.everOpenedIds.update((s) => new Set([...s, id]));
       }
       return next;
     });

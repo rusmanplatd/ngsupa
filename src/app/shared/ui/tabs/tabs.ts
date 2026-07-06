@@ -12,7 +12,9 @@ import {
   inject,
   DestroyRef,
   Directive,
+  PLATFORM_ID,
 } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { FocusKeyManager, FocusableOption } from '@angular/cdk/a11y';
 
@@ -431,6 +433,14 @@ export class TabsComponent implements AfterViewInit {
   readonly orientation = input<TabsOrientation>('horizontal');
   readonly fullWidth = input(false);
   readonly ariaLabel = input('Tabs');
+  /**
+   * When true, uses the View Transitions API for tab switches (browser-native
+   * cross-fade/slide animation). Gracefully degrades if unsupported.
+   */
+  readonly viewTransitions = input(false);
+
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
 
   private readonly tabBtns = viewChildren<ElementRef<HTMLButtonElement>>('tabBtn');
   private readonly tabFocusItems = viewChildren(TabFocusItemDirective);
@@ -526,8 +536,21 @@ export class TabsComponent implements AfterViewInit {
 
   protected selectTab(tab: TabItem): void {
     if (tab.disabled) return;
-    this.activeTab.set(tab.id);
-    this.tabChanged.emit(tab);
+
+    // Use View Transitions API for smooth tab switches if enabled & supported
+    if (
+      this.viewTransitions() &&
+      this.isBrowser &&
+      typeof (document as any).startViewTransition === 'function'
+    ) {
+      (document as any).startViewTransition(() => {
+        this.activeTab.set(tab.id);
+        this.tabChanged.emit(tab);
+      });
+    } else {
+      this.activeTab.set(tab.id);
+      this.tabChanged.emit(tab);
+    }
   }
 
   protected onKeydown(event: KeyboardEvent): void {

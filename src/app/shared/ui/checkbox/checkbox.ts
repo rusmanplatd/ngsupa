@@ -1,4 +1,8 @@
-import { Component, model, input, computed } from '@angular/core';
+import { Component, model, input, computed, forwardRef, signal } from '@angular/core';
+import {
+  ControlValueAccessor,
+  NG_VALUE_ACCESSOR,
+} from '@angular/forms';
 
 @Component({
   selector: 'app-checkbox',
@@ -6,12 +10,19 @@ import { Component, model, input, computed } from '@angular/core';
     class: 'inline-flex items-start gap-3 cursor-pointer select-none',
     '(click)': 'toggle()',
     '(keydown.space)': '$event.preventDefault(); toggle()',
-    '[attr.tabindex]': 'disabled() ? -1 : 0',
+    '[attr.tabindex]': 'isDisabled() ? -1 : 0',
     role: 'checkbox',
-    '[attr.aria-checked]': 'indeterminate() ? "mixed" : checked()',
-    '[attr.aria-disabled]': 'disabled()',
+    '[attr.aria-checked]': 'indeterminate() ? "mixed" : internalChecked()',
+    '[attr.aria-disabled]': 'isDisabled()',
     '[attr.aria-label]': 'ariaLabel() || label()',
   },
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => CheckboxComponent),
+      multi: true,
+    },
+  ],
   template: `
     <span
       class="checkbox-box relative mt-0.5 inline-flex shrink-0 items-center justify-center transition-all duration-normal"
@@ -19,7 +30,7 @@ import { Component, model, input, computed } from '@angular/core';
       [style.box-shadow]="boxShadow()"
     >
       <!-- Check mark SVG -->
-      @if (checked() && !indeterminate()) {
+      @if (internalChecked() && !indeterminate()) {
         <svg viewBox="0 0 12 12" fill="none" class="h-3.5 w-3.5 text-white" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M2.5 6L5 8.5L9.5 3.5" class="animate-check" />
         </svg>
@@ -66,7 +77,7 @@ import { Component, model, input, computed } from '@angular/core';
     }
   `,
 })
-export class CheckboxComponent {
+export class CheckboxComponent implements ControlValueAccessor {
   readonly checked = model(false);
   readonly indeterminate = input(false);
   readonly label = input('');
@@ -74,8 +85,40 @@ export class CheckboxComponent {
   readonly disabled = input(false);
   readonly ariaLabel = input<string | null>(null);
 
+  /** Internal checked state — used when controlled via CVA (formControl / ngModel). */
+  protected readonly internalChecked = signal(false);
+  private readonly isDisabledCva = signal(false);
+
+  protected readonly isDisabled = computed(
+    () => this.disabled() || this.isDisabledCva()
+  );
+
+  // ── ControlValueAccessor ────────────────────────────────────
+  private onChange: (val: boolean) => void = () => {};
+  private onTouchedFn: () => void = () => {};
+
+  writeValue(value: boolean): void {
+    const v = !!value;
+    this.internalChecked.set(v);
+    this.checked.set(v);
+  }
+
+  registerOnChange(fn: (val: boolean) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouchedFn = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.isDisabledCva.set(isDisabled);
+  }
+
+  // ── Computed ────────────────────────────────────────────────
+
   protected readonly boxClasses = computed(() => {
-    const on = this.checked() || this.indeterminate();
+    const on = this.internalChecked() || this.indeterminate();
     const base = 'w-[22px] h-[22px] rounded-md';
     return on
       ? `${base} bg-system-blue border-2 border-system-blue`
@@ -83,12 +126,16 @@ export class CheckboxComponent {
   });
 
   protected readonly boxShadow = computed(() => {
-    const on = this.checked() || this.indeterminate();
+    const on = this.internalChecked() || this.indeterminate();
     return on ? 'var(--form-control-glow)' : 'none';
   });
 
   protected toggle(): void {
-    if (this.disabled()) return;
-    this.checked.update((v) => !v);
+    if (this.isDisabled()) return;
+    const next = !this.internalChecked();
+    this.internalChecked.set(next);
+    this.checked.set(next);
+    this.onChange(next);
+    this.onTouchedFn();
   }
 }
