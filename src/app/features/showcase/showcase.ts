@@ -61,6 +61,7 @@ import {
 import { FileUploadComponent, FileEntry, UploadProgress } from '../../shared/ui/file-upload/file-upload';
 import { BreadcrumbComponent, type BreadcrumbItem } from '../../shared/ui/breadcrumb/breadcrumb';
 import { TimelineComponent, type TimelineEvent } from '../../shared/ui/timeline/timeline';
+import { CalendarComponent, type CalendarEvent as CalendarEventType } from '../../shared/ui/calendar';
 import { Observable } from 'rxjs';
 
 @Component({
@@ -120,6 +121,7 @@ import { Observable } from 'rxjs';
     FileUploadComponent,
     BreadcrumbComponent,
     TimelineComponent,
+    CalendarComponent,
   ],
   template: `
     <app-toast-container />
@@ -2647,11 +2649,77 @@ import { Observable } from 'rxjs';
         </div>
       </section>
 
+      <!-- ═══════════════════════════════════════════════════
+           Section: Calendar
+           ═══════════════════════════════════════════════════ -->
+      <section id="calendar" class="mb-16">
+        <h2 class="section-title">Calendar</h2>
+        <div class="space-y-8">
+
+          <!-- Month View -->
+          <div>
+            <h3 class="subsection-label">Month View</h3>
+            <div style="height: 680px">
+              <app-calendar
+                [events]="calendarEvents"
+                initialView="month"
+                [firstDayOfWeek]="1"
+                (eventClick)="onCalEventClick($event)"
+                (dateClick)="onCalDateClick($event)"
+              />
+            </div>
+          </div>
+
+          <!-- Week View -->
+          <div>
+            <h3 class="subsection-label">Week View</h3>
+            <div style="height: 640px">
+              <app-calendar
+                [events]="calendarEvents"
+                initialView="week"
+                [firstDayOfWeek]="1"
+                (eventClick)="onCalEventClick($event)"
+                (dateClick)="onCalDateClick($event)"
+              />
+            </div>
+          </div>
+
+          <!-- Day View -->
+          <div>
+            <h3 class="subsection-label">Day View</h3>
+            <div style="height: 600px">
+              <app-calendar
+                [events]="calendarEvents"
+                initialView="day"
+                [firstDayOfWeek]="1"
+                (eventClick)="onCalEventClick($event)"
+                (dateClick)="onCalDateClick($event)"
+              />
+            </div>
+          </div>
+
+          <!-- Schedule View -->
+          <div>
+            <h3 class="subsection-label">Schedule / Agenda View</h3>
+            <div style="height: 520px">
+              <app-calendar
+                [events]="calendarEvents"
+                initialView="schedule"
+                [firstDayOfWeek]="1"
+                (eventClick)="onCalEventClick($event)"
+                (dateClick)="onCalDateClick($event)"
+              />
+            </div>
+          </div>
+
+        </div>
+      </section>
+
     </main>
 
     <!-- Bottom toolbar demo -->
     <app-toolbar ariaLabel="Page actions" variant="prominent">
-      <span toolbar-leading class="text-xs text-[var(--text-tertiary)]">42 components</span>
+      <span toolbar-leading class="text-xs text-[var(--text-tertiary)]">43 components</span>
       <button appButton variant="gray" size="sm" [rounded]="true" (click)="toastService.info('Shared!')">
         <svg lucideIcon="share" [size]="14" /> Share
       </button>
@@ -3980,4 +4048,208 @@ export class ShowcaseComponent {
       completed: true,
     },
   ];
+
+  // ── Calendar demo data ────────────────────────────────────────────────────
+  protected readonly calendarEvents: CalendarEventType[] = (() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const d = today.getDate();
+
+    const dt = (dayOffset: number, h: number, min = 0) => {
+      const date = new Date(y, m, d + dayOffset, h, min, 0, 0);
+      return date;
+    };
+
+    return [
+      // ── All-day events ──────────────────────────────────────────
+      {
+        id: 'allday-1',
+        title: 'Company Offsite',
+        start: new Date(y, m, d + 1),
+        end: new Date(y, m, d + 3),
+        allDay: true,
+        color: 'success' as const,
+      },
+      {
+        id: 'allday-2',
+        title: 'Public Holiday',
+        start: new Date(y, m, d + 5),
+        allDay: true,
+        color: 'warning' as const,
+      },
+
+      // ── Today events ────────────────────────────────────────────
+      {
+        id: 'ev-1',
+        title: 'Morning Standup',
+        start: dt(0, 9, 0),
+        end: dt(0, 9, 30),
+        color: 'primary' as const,
+        subtitle: 'Google Meet',
+      },
+      {
+        id: 'ev-2',
+        title: 'Design Review',
+        start: dt(0, 10, 30),
+        end: dt(0, 12, 0),
+        color: 'purple' as const,
+        subtitle: 'Conference Room A',
+      },
+      {
+        id: 'ev-3',
+        title: 'Lunch with Client',
+        start: dt(0, 12, 30),
+        end: dt(0, 13, 30),
+        color: 'teal' as const,
+        subtitle: 'The Atrium Café',
+      },
+      {
+        id: 'ev-4',
+        title: 'Architecture Sprint',
+        start: dt(0, 14, 0),
+        end: dt(0, 16, 30),
+        color: 'info' as const,
+        subtitle: 'Zoom',
+      },
+      {
+        id: 'ev-5',
+        title: 'Code Review',
+        start: dt(0, 14, 30),
+        end: dt(0, 15, 30),
+        color: 'primary' as const,
+      },
+      {
+        id: 'ev-6',
+        title: '1-on-1 with Manager',
+        start: dt(0, 17, 0),
+        end: dt(0, 17, 45),
+        color: 'pink' as const,
+        subtitle: 'Office',
+      },
+
+      // ── Tomorrow events ─────────────────────────────────────────
+      {
+        id: 'ev-7',
+        title: 'Sprint Planning',
+        start: dt(1, 9, 0),
+        end: dt(1, 11, 30),
+        color: 'success' as const,
+        subtitle: 'Boardroom',
+      },
+      {
+        id: 'ev-8',
+        title: 'Product Demo',
+        start: dt(1, 13, 0),
+        end: dt(1, 14, 0),
+        color: 'error' as const,
+        subtitle: 'Client Call',
+      },
+      {
+        id: 'ev-9',
+        title: 'Engineering All-Hands',
+        start: dt(1, 15, 0),
+        end: dt(1, 16, 0),
+        color: 'warning' as const,
+      },
+
+      // ── Day +2 ──────────────────────────────────────────────────
+      {
+        id: 'ev-10',
+        title: 'UX Workshop',
+        start: dt(2, 10, 0),
+        end: dt(2, 12, 0),
+        color: 'purple' as const,
+        subtitle: 'Design Studio',
+      },
+      {
+        id: 'ev-11',
+        title: 'Retrospective',
+        start: dt(2, 14, 0),
+        end: dt(2, 15, 30),
+        color: 'teal' as const,
+      },
+      {
+        id: 'ev-12',
+        title: 'Team Dinner',
+        start: dt(2, 19, 0),
+        end: dt(2, 21, 30),
+        color: 'pink' as const,
+        subtitle: 'Sky Lounge',
+      },
+
+      // ── Day -1 (yesterday) ──────────────────────────────────────
+      {
+        id: 'ev-13',
+        title: 'Weekly Sync',
+        start: dt(-1, 10, 0),
+        end: dt(-1, 11, 0),
+        color: 'primary' as const,
+      },
+      {
+        id: 'ev-14',
+        title: 'Security Training',
+        start: dt(-1, 14, 0),
+        end: dt(-1, 15, 30),
+        color: 'warning' as const,
+      },
+
+      // ── Day +4 ──────────────────────────────────────────────────
+      {
+        id: 'ev-15',
+        title: 'Tech Lead Review',
+        start: dt(4, 9, 30),
+        end: dt(4, 10, 30),
+        color: 'info' as const,
+      },
+      {
+        id: 'ev-16',
+        title: 'Q3 Planning Session',
+        start: dt(4, 13, 0),
+        end: dt(4, 17, 0),
+        color: 'success' as const,
+        subtitle: 'Main Conference Hall',
+      },
+
+      // ── Day +7 ──────────────────────────────────────────────────
+      {
+        id: 'ev-17',
+        title: 'Board Meeting',
+        start: dt(7, 9, 0),
+        end: dt(7, 12, 0),
+        color: 'error' as const,
+        subtitle: 'Executive Floor',
+      },
+      {
+        id: 'ev-18',
+        title: 'Team Building',
+        start: new Date(y, m, d + 8),
+        allDay: true,
+        color: 'success' as const,
+      },
+
+      // ── Day +10 ─────────────────────────────────────────────────
+      {
+        id: 'ev-19',
+        title: 'Annual Conference',
+        start: dt(10, 8, 0),
+        end: dt(12, 18, 0),
+        allDay: false,
+        color: 'purple' as const,
+        subtitle: 'Convention Center',
+      },
+    ];
+  })();
+
+  protected onCalEventClick(payload: { event: CalendarEventType; nativeEvent: MouseEvent }): void {
+    this.toastService.info(`📅 ${payload.event.title}`);
+  }
+
+  protected onCalDateClick(payload: { date: Date; allDay: boolean; nativeEvent: MouseEvent }): void {
+    const time = payload.allDay
+      ? payload.date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+      : payload.date.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    this.toastService.success(`Create event: ${time}`);
+  }
 }
+
