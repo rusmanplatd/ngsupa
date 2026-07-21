@@ -1,4 +1,4 @@
-import { Component, input, signal, computed, ElementRef, viewChild, afterRenderEffect } from '@angular/core';
+import { Component, input, signal, afterNextRender, DestroyRef, inject, untracked } from '@angular/core';
 
 @Component({
   selector: 'app-nav-bar',
@@ -58,14 +58,37 @@ export class NavBarComponent {
 
   protected readonly scrolled = signal(false);
 
+  private readonly destroyRef = inject(DestroyRef);
+
   constructor() {
-    afterRenderEffect(() => {
+    // Set initial state before first render
+    if (typeof window !== 'undefined') {
+      this.scrolled.set(window.scrollY > 20);
+    }
+
+    afterNextRender(() => {
+      const COLLAPSE_AT = 24;
+      const EXPAND_AT = 8;
+      let rafId: number | null = null;
+
       const onScroll = () => {
-        this.scrolled.set(window.scrollY > 20);
+        if (rafId !== null) return; // already queued, skip
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          const y = window.scrollY;
+          const current = untracked(() => this.scrolled());
+          if (!current && y > COLLAPSE_AT) this.scrolled.set(true);
+          else if (current && y < EXPAND_AT) this.scrolled.set(false);
+        });
       };
+
       window.addEventListener('scroll', onScroll, { passive: true });
-      onScroll();
-      return () => window.removeEventListener('scroll', onScroll);
+      this.destroyRef.onDestroy(() => {
+        window.removeEventListener('scroll', onScroll);
+        if (rafId !== null) cancelAnimationFrame(rafId);
+      });
     });
+
+
   }
 }

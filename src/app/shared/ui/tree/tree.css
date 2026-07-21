@@ -31,7 +31,7 @@ cdk-tree-node {
 }
 
 .tree-search:focus-within {
-  border-color: var(--color-system-blue);
+  border-color: var(--color-primary);
   background: var(--surface-primary);
   box-shadow: var(--form-field-shadow), var(--form-control-glow);
 }
@@ -44,7 +44,7 @@ cdk-tree-node {
 }
 
 .tree-search:focus-within .tree-search-icon {
-  color: var(--color-system-blue);
+  color: var(--color-primary);
 }
 
 .tree-search-input {
@@ -218,7 +218,7 @@ cdk-tree-node {
   height: 24px;
   flex-shrink: 0;
   border-radius: var(--radius-sm);
-  color: var(--color-system-blue);
+  color: var(--color-primary);
   transition: color var(--duration-fast) var(--ease-default);
 }
 
@@ -277,7 +277,7 @@ cdk-tree-node {
   min-width: 0;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  border: 2px solid var(--color-system-blue);
+  border: 2px solid var(--color-primary);
   background: var(--surface-primary);
   font: var(--type-footnote);
   font-weight: 500;
@@ -346,7 +346,7 @@ cdk-tree-node {
 
 .tree-drag-preview-icon {
   flex-shrink: 0;
-  color: var(--color-system-blue);
+  color: var(--color-primary);
 }
 
 /* Drop placeholder */
@@ -354,7 +354,7 @@ cdk-tree-node {
   height: 2px;
   margin: 0 12px;
   border-radius: 1px;
-  background: var(--color-system-blue);
+  background: var(--color-primary);
   box-shadow: 0 0 6px oklch(59% 0.24 264 / 0.4);
   transition: all var(--duration-fast) var(--ease-default);
 }
@@ -403,7 +403,7 @@ cdk-tree-node {
 
 .tree-context-item:hover,
 .tree-context-item:focus-visible {
-  background: var(--color-system-blue);
+  background: var(--color-primary);
   color: var(--text-on-fill);
 }
 
@@ -419,16 +419,16 @@ cdk-tree-node {
 }
 
 .tree-context-item--destructive {
-  color: var(--color-system-red);
+  color: var(--color-error);
 }
 
 .tree-context-item--destructive svg {
-  color: var(--color-system-red);
+  color: var(--color-error);
 }
 
 .tree-context-item--destructive:hover,
 .tree-context-item--destructive:focus-visible {
-  background: var(--color-system-red);
+  background: var(--color-error);
   color: var(--text-on-fill);
 }
 
@@ -568,4 +568,22 @@ cdk-tree-node {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* ── Lazy Loading Spinner ─────────────────────────────────────── */
+
+.tree-toggle--loading {
+  cursor: wait;
+  pointer-events: none;
+}
+
+.tree-toggle-spinner {
+  color: var(--color-primary);
+  animation: tree-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes tree-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }

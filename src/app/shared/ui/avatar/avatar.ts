@@ -71,11 +71,11 @@ export class AvatarComponent {
   protected readonly fallbackClasses = computed(() => {
     const n = this.name() || '';
     const colors = [
-      'bg-system-blue',
-      'bg-system-red',
-      'bg-system-green',
-      'bg-system-orange',
-      'bg-system-teal',
+      'bg-[var(--color-primary)]',
+      'bg-[var(--color-error)]',
+      'bg-[var(--color-success)]',
+      'bg-[var(--color-warning)]',
+      'bg-[var(--color-info)]',
       'bg-system-purple',
       'bg-system-pink',
       'bg-system-indigo',
@@ -88,9 +88,9 @@ export class AvatarComponent {
 
   protected readonly statusClasses = computed(() => {
     switch (this.status()) {
-      case 'online': return 'bg-system-green';
+      case 'online': return 'bg-[var(--color-success)]';
       case 'offline': return 'bg-[var(--text-tertiary)]';
-      case 'away': return 'bg-system-orange';
+      case 'away': return 'bg-[var(--color-warning)]';
       default: return '';
     }
   });

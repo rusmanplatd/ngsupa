@@ -1,4 +1,4 @@
-import { Component, input, effect, inject } from '@angular/core';
+import { Component, input, effect, inject, untracked } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 
 @Component({
@@ -69,16 +69,19 @@ export class SpinnerComponent {
   private previousLoading = true;
 
   constructor() {
+    // Detect transition from loading → done and announce to screen readers.
+    // untracked() breaks the reactive cycle caused by liveAnnouncer triggering CD.
     effect(() => {
       const isLoading = this.loading();
-      // Detect transition from loading → done
-      if (this.previousLoading && !isLoading) {
-        const msg = this.doneMessage();
-        if (msg) {
-          this.liveAnnouncer.announce(msg, 'polite');
+      untracked(() => {
+        if (this.previousLoading && !isLoading) {
+          const msg = this.doneMessage();
+          if (msg) {
+            this.liveAnnouncer.announce(msg, 'polite');
+          }
         }
-      }
-      this.previousLoading = isLoading;
+        this.previousLoading = isLoading;
+      });
     });
   }
 }

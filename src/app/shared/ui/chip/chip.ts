@@ -77,7 +77,7 @@ export class ChipComponent {
     const sel = this.selected();
 
     if (sel) {
-      return 'bg-system-blue text-white border border-system-blue';
+      return 'bg-[var(--chip-selected-bg)] text-[var(--chip-selected-color)] border border-[var(--chip-selected-border)]';
     }
 
     if (v === 'outlined') {

@@ -1,4 +1,4 @@
-import { Component, input, computed, inject, effect } from '@angular/core';
+import { Component, input, computed, inject, effect, untracked } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { SpinnerComponent } from '../spinner/spinner';
 
@@ -72,15 +72,19 @@ export class ButtonComponent {
   private wasLoading = false;
 
   constructor() {
-    // Announce loading state transitions to screen readers
+    // Announce loading state transitions to screen readers.
+    // untracked() breaks the reactive cycle: the announce/wasLoading side-effects
+    // do not feed back into this effect as reactive dependencies.
     effect(() => {
       const isLoading = this.loading();
-      if (isLoading && !this.wasLoading) {
-        this.liveAnnouncer.announce(this.loadingLabel(), 'polite');
-      } else if (!isLoading && this.wasLoading) {
-        this.liveAnnouncer.announce(this.loadingDoneLabel(), 'polite');
-      }
-      this.wasLoading = isLoading;
+      untracked(() => {
+        if (isLoading && !this.wasLoading) {
+          this.liveAnnouncer.announce(this.loadingLabel(), 'polite');
+        } else if (!isLoading && this.wasLoading) {
+          this.liveAnnouncer.announce(this.loadingDoneLabel(), 'polite');
+        }
+        this.wasLoading = isLoading;
+      });
     });
   }
 
@@ -100,17 +104,17 @@ export class ButtonComponent {
 
     const variantClasses: Record<ButtonVariant, string> = {
       filled:
-        'bg-system-blue text-white hover:bg-system-blue-hover active:bg-system-blue-active shadow-xs',
+        'bg-[var(--btn-filled-bg)] text-[var(--btn-filled-color)] hover:bg-[var(--btn-filled-bg-hover)] active:bg-[var(--btn-filled-bg-active)] shadow-xs',
       tinted:
-        'bg-[var(--interactive-tint)] text-system-blue hover:bg-[var(--interactive-tint-hover)]',
+        'bg-[var(--btn-tinted-bg)] text-[var(--btn-tinted-color)] hover:bg-[var(--btn-tinted-bg-hover)]',
       plain:
-        'bg-transparent text-system-blue hover:bg-[var(--fill-primary)]',
+        'bg-transparent text-[var(--btn-plain-color)] hover:bg-[var(--btn-plain-bg-hover)]',
       destructive:
-        'bg-system-red text-white hover:bg-system-red-hover active:bg-system-red-active shadow-xs',
+        'bg-[var(--btn-destructive-bg)] text-[var(--btn-destructive-color)] hover:bg-[var(--btn-destructive-bg-hover)] active:bg-[var(--btn-destructive-bg-active)] shadow-xs',
       ghost:
-        'bg-transparent text-[var(--text-secondary)] border border-transparent hover:border-[var(--border-default)] hover:bg-[var(--fill-primary)]',
+        'bg-transparent text-[var(--btn-ghost-color)] border border-transparent hover:border-[var(--btn-ghost-border-hover)] hover:bg-[var(--btn-ghost-bg-hover)]',
       gray:
-        'bg-[var(--fill-secondary)] text-[var(--text-primary)] hover:bg-[var(--fill-primary)] active:bg-[var(--fill-tertiary)]',
+        'bg-[var(--btn-gray-bg)] text-[var(--btn-gray-color)] hover:bg-[var(--btn-gray-bg-hover)] active:bg-[var(--btn-gray-bg-active)]',
     };
 
     return `${sizeClasses[s]} ${variantClasses[v]}`;

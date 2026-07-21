@@ -83,16 +83,16 @@ export class StatCardComponent {
 
   protected readonly trendClasses = computed(() => {
     switch (this.resolvedTrend()) {
-      case 'up': return 'text-system-green';
-      case 'down': return 'text-system-red';
+      case 'up': return 'text-[var(--color-success)]';
+      case 'down': return 'text-[var(--color-error)]';
       default: return 'text-[var(--text-tertiary)]';
     }
   });
 
   protected readonly trendBgClasses = computed(() => {
     switch (this.resolvedTrend()) {
-      case 'up': return 'bg-system-green-light';
-      case 'down': return 'bg-system-red-light';
+      case 'up': return 'bg-[var(--color-success-container)]';
+      case 'down': return 'bg-[var(--color-error-container)]';
       default: return 'bg-[var(--fill-primary)]';
     }
   });

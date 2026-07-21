@@ -163,8 +163,8 @@ import { Component, input, output, computed } from '@angular/core';
     }
 
     .paginator-page--active {
-      background: var(--surface-elevated);
-      color: var(--color-system-blue);
+      background: var(--interactive-tint);
+      color: var(--paginator-active-color);
       font-weight: 600;
       box-shadow: var(--shadow-sm);
       animation: paginator-pop 0.35s var(--ease-spring);

@@ -30,7 +30,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
       <!-- Decrement -->
       <button
         type="button"
-        class="stepper-btn flex h-11 w-11 items-center justify-center text-system-blue transition-all duration-fast hover:bg-[var(--fill-primary)] active:bg-[var(--fill-secondary)] active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
+        class="stepper-btn flex h-11 w-11 items-center justify-center text-[var(--stepper-accent)] transition-all duration-fast hover:bg-[var(--fill-primary)] active:bg-[var(--fill-secondary)] active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
         [disabled]="disabled() || atMin()"
         [attr.aria-label]="'Decrease ' + (label() || 'value')"
         (click)="decrement()"
@@ -56,7 +56,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
       <!-- Increment -->
       <button
         type="button"
-        class="stepper-btn flex h-11 w-11 items-center justify-center text-system-blue transition-all duration-fast hover:bg-[var(--fill-primary)] active:bg-[var(--fill-secondary)] active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
+        class="stepper-btn flex h-11 w-11 items-center justify-center text-[var(--stepper-accent)] transition-all duration-fast hover:bg-[var(--fill-primary)] active:bg-[var(--fill-secondary)] active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
         [disabled]="disabled() || atMax()"
         [attr.aria-label]="'Increase ' + (label() || 'value')"
         (click)="increment()"

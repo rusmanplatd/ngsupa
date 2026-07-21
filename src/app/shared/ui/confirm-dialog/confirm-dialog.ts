@@ -53,12 +53,12 @@ export class ConfirmDialogService {
       <div class="px-6 pt-6 pb-4 text-center">
         @if (config.icon) {
           <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full"
-            [class]="config.destructive ? 'bg-system-red-light' : 'bg-system-blue-light'"
+            [class]="config.destructive ? 'bg-[var(--color-error-container)]' : 'bg-[var(--color-primary-container)]'"
           >
             <svg
               [lucideIcon]="config.icon"
               [size]="22"
-              [class]="config.destructive ? 'text-system-red' : 'text-system-blue'"
+              [class]="config.destructive ? 'text-[var(--color-error)]' : 'text-[var(--color-primary)]'"
             />
           </div>
         }
@@ -74,7 +74,7 @@ export class ConfirmDialogService {
       <div class="border-t border-[var(--separator)] flex">
         <button
           type="button"
-          class="flex-1 py-3 text-center text-base font-medium text-system-blue transition-colors hover:bg-[var(--fill-primary)] active:bg-[var(--fill-secondary)] border-r border-[var(--separator)]"
+          class="flex-1 py-3 text-center text-base font-medium text-[var(--color-primary)] transition-colors hover:bg-[var(--fill-primary)] active:bg-[var(--fill-secondary)] border-r border-[var(--separator)]"
           (click)="cancel()"
         >
           {{ config.cancelLabel || 'Cancel' }}
@@ -82,7 +82,7 @@ export class ConfirmDialogService {
         <button
           type="button"
           class="flex-1 py-3 text-center text-base font-semibold transition-colors hover:bg-[var(--fill-primary)] active:bg-[var(--fill-secondary)]"
-          [class]="config.destructive ? 'text-system-red' : 'text-system-blue'"
+          [class]="config.destructive ? 'text-[var(--color-error)]' : 'text-[var(--color-primary)]'"
           (click)="confirmAction()"
         >
           {{ config.confirmLabel || 'Confirm' }}

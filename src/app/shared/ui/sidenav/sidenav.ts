@@ -7,7 +7,8 @@ import {
   model,
   inject,
   ElementRef,
-  afterRenderEffect,
+  afterNextRender,
+  DestroyRef,
   OnDestroy,
 } from '@angular/core';
 import { LucideDynamicIcon } from '@lucide/angular';
@@ -137,12 +138,12 @@ export interface SidenavItem {
 
     .sidenav-item--active {
       background-color: var(--interactive-tint);
-      color: var(--color-system-blue);
+      color: var(--color-primary);
     }
 
     .sidenav-item--active:hover {
       background-color: var(--interactive-tint-hover);
-      color: var(--color-system-blue);
+      color: var(--color-primary);
     }
 
     .sidenav-item--disabled {
@@ -165,7 +166,7 @@ export interface SidenavItem {
       width: 3px;
       height: 20px;
       border-radius: 0 3px 3px 0;
-      background: var(--color-system-blue);
+      background: var(--color-primary);
       animation: indicator-in 0.3s var(--ease-spring);
     }
 
@@ -204,7 +205,7 @@ export interface SidenavItem {
     }
 
     .sidenav-item--active .sidenav-item__icon {
-      color: var(--color-system-blue);
+      color: var(--color-primary);
     }
 
     /* ── Dot placeholder (when no icon at nested levels) ── */
@@ -219,7 +220,7 @@ export interface SidenavItem {
     }
 
     .sidenav-item--active .sidenav-item__dot {
-      background: var(--color-system-blue);
+      background: var(--color-primary);
       opacity: 1;
     }
 
@@ -244,7 +245,7 @@ export interface SidenavItem {
 
     .sidenav-item--active .sidenav-item__label {
       font-weight: 600;
-      color: var(--color-system-blue);
+      color: var(--color-primary);
     }
 
     .sidenav-item__badge {
@@ -253,7 +254,7 @@ export interface SidenavItem {
       font-weight: 600;
       padding: 1px 7px;
       border-radius: var(--radius-full);
-      background: var(--color-system-blue);
+      background: var(--color-primary);
       color: var(--text-on-fill);
       min-width: 20px;
       text-align: center;
@@ -267,7 +268,7 @@ export interface SidenavItem {
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: var(--color-system-blue);
+      background: var(--color-primary);
       animation: clear-btn-in 0.2s var(--ease-spring);
     }
 
@@ -284,7 +285,7 @@ export interface SidenavItem {
     }
 
     .sidenav-item--active .sidenav-item__chevron {
-      color: var(--color-system-blue);
+      color: var(--color-primary);
     }
   `,
 })
@@ -766,8 +767,8 @@ export class SidenavGroupComponent {
     }
 
     .sidenav__collapse-btn:hover {
-      background: var(--color-system-blue);
-      border-color: var(--color-system-blue);
+      background: var(--color-primary);
+      border-color: var(--color-primary);
       color: var(--text-on-fill);
       transform: scale(1.1);
     }
@@ -850,15 +851,20 @@ export class SidenavComponent implements OnDestroy {
   });
 
   constructor() {
-    afterRenderEffect(() => {
-      const breakpoint = this.mobileBreakpoint();
+    const breakpoint = this.mobileBreakpoint();
+    if (typeof window !== 'undefined') {
+      this.isMobile.set(window.innerWidth < breakpoint);
+    }
+
+    const destroyRef = inject(DestroyRef);
+    afterNextRender(() => {
       const checkMobile = () => {
-        this.isMobile.set(window.innerWidth < breakpoint);
+        const mobile = window.innerWidth < breakpoint;
+        if (this.isMobile() !== mobile) this.isMobile.set(mobile);
       };
       window.addEventListener('resize', checkMobile, { passive: true });
-      checkMobile();
       this.resizeCleanup = () => window.removeEventListener('resize', checkMobile);
-      return this.resizeCleanup;
+      destroyRef.onDestroy(this.resizeCleanup);
     });
   }
 

@@ -444,13 +444,13 @@ interface CalendarDay {
     }
 
     .dp-day--focused:focus-visible {
-      outline: 2px solid var(--system-blue, #007aff);
+      outline: 2px solid var(--datepicker-accent);
       outline-offset: 1px;
     }
 
     .dp-day--today {
       font-weight: 600;
-      color: var(--system-blue);
+      color: var(--datepicker-today-color);
     }
 
     .dp-today-dot {
@@ -461,11 +461,11 @@ interface CalendarDay {
       width: 4px;
       height: 4px;
       border-radius: 50%;
-      background: var(--system-blue);
+      background: var(--datepicker-today-color);
     }
 
     .dp-day--selected {
-      background: var(--system-blue) !important;
+      background: var(--datepicker-selected-bg) !important;
       color: white !important;
       font-weight: 600;
       border-radius: 50%;
@@ -473,7 +473,7 @@ interface CalendarDay {
     }
 
     .dp-day--range-start {
-      background: var(--system-blue) !important;
+      background: var(--datepicker-selected-bg) !important;
       color: white !important;
       font-weight: 600;
       border-radius: 50% 0 0 50%;
@@ -481,7 +481,7 @@ interface CalendarDay {
     }
 
     .dp-day--range-end {
-      background: var(--system-blue) !important;
+      background: var(--datepicker-selected-bg) !important;
       color: white !important;
       font-weight: 600;
       border-radius: 0 50% 50% 0;
@@ -494,7 +494,7 @@ interface CalendarDay {
 
     .dp-day--in-range {
       background: oklch(59% 0.24 264 / 0.1);
-      color: var(--system-blue);
+      color: var(--datepicker-accent);
       border-radius: 0;
       font-weight: 500;
     }
@@ -527,12 +527,12 @@ interface CalendarDay {
     }
 
     .dp-footer-btn--accent {
-      color: var(--system-blue);
+      color: var(--datepicker-accent);
       font-weight: 600;
     }
 
     .dp-footer-btn--danger {
-      color: var(--system-red);
+      color: var(--datepicker-error-color);
     }
 
     .dp-footer-btn--muted {
@@ -573,14 +573,14 @@ interface CalendarDay {
     }
 
     .dp-grid-cell--active {
-      background: var(--system-blue);
+      background: var(--datepicker-selected-bg);
       color: white;
       font-weight: 600;
       box-shadow: 0 2px 8px oklch(59% 0.24 264 / 0.3);
     }
 
     .dp-grid-cell--current {
-      color: var(--system-blue);
+      color: var(--datepicker-today-color);
       font-weight: 600;
     }
   `,
@@ -1071,19 +1071,19 @@ export class CalendarPanelComponent {
       }
 
       &:focus-visible {
-        border-color: var(--system-blue);
+        border-color: var(--datepicker-accent);
         box-shadow: 0 0 0 3px oklch(59% 0.24 264 / 0.15);
       }
     }
 
     .dp-trigger--open {
-      border-color: var(--system-blue);
+      border-color: var(--datepicker-accent);
       background: var(--surface-primary);
       box-shadow: 0 0 0 3px oklch(59% 0.24 264 / 0.12);
     }
 
     .dp-trigger--error {
-      border-color: var(--system-red) !important;
+      border-color: var(--datepicker-error-border) !important;
       box-shadow: none !important;
     }
 
@@ -1105,7 +1105,7 @@ export class CalendarPanelComponent {
     }
 
     .dp-trigger--open .dp-trigger-icon {
-      color: var(--system-blue);
+      color: var(--datepicker-accent);
     }
 
     /* ── Trigger Content ───────────────────────────── */
@@ -1136,7 +1136,7 @@ export class CalendarPanelComponent {
     }
 
     .dp-trigger-label--accent {
-      color: var(--system-blue);
+      color: var(--datepicker-accent);
     }
 
     .dp-trigger-value {
@@ -1204,7 +1204,7 @@ export class CalendarPanelComponent {
     }
 
     .dp-hint-text--error {
-      color: var(--system-red);
+      color: var(--datepicker-error-color);
     }
   `,
 })

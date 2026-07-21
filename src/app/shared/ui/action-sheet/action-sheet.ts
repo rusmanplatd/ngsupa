@@ -128,7 +128,7 @@ export class ActionSheetService {
     <div class="mt-2">
       <button
         type="button"
-        class="w-full rounded-2xl bg-[var(--glass-bg-thick)] backdrop-blur-xl border border-[var(--glass-border)] px-4 py-3.5 text-center text-base font-semibold text-system-blue transition-colors duration-fast hover:bg-[var(--fill-primary)] active:bg-[var(--fill-secondary)]"
+        class="w-full rounded-2xl bg-[var(--glass-bg-thick)] backdrop-blur-xl border border-[var(--glass-border)] px-4 py-3.5 text-center text-base font-semibold text-[var(--color-primary)] transition-colors duration-fast hover:bg-[var(--fill-primary)] active:bg-[var(--fill-secondary)]"
         (click)="select(null)"
       >
         {{ config().cancelLabel || 'Cancel' }}
@@ -163,9 +163,9 @@ export class ActionSheetPanelComponent {
       return 'opacity-40 cursor-not-allowed';
     }
     if (action.destructive) {
-      return 'text-system-red font-medium hover:bg-system-red/10 cursor-pointer';
+      return 'text-[var(--color-error)] font-medium hover:bg-[var(--color-error)]/10 cursor-pointer';
     }
-    return 'text-system-blue font-medium hover:bg-[var(--fill-primary)] cursor-pointer';
+    return 'text-[var(--color-primary)] font-medium hover:bg-[var(--fill-primary)] cursor-pointer';
   }
 
   protected select(id: string | null): void {

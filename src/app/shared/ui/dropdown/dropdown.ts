@@ -9,6 +9,8 @@ import {
   OnDestroy,
   viewChild,
   effect,
+  untracked,
+  DOCUMENT,
 } from '@angular/core';
 import { Overlay, OverlayRef, ConnectedPosition } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
@@ -30,6 +32,9 @@ export interface DropdownGroup {
   label: string;
   options: DropdownOption[];
 }
+
+/** Sentinel value emitted when there are no more pages to load. */
+export const DROPDOWN_NO_MORE_PAGES = Symbol('DROPDOWN_NO_MORE_PAGES');
 
 // ── Component ─────────────────────────────────────────────────
 
@@ -72,7 +77,7 @@ export interface DropdownGroup {
             <div class="flex flex-wrap gap-1 min-h-[1.5rem]">
               @for (opt of visibleChips(); track opt.value) {
                 <span
-                  class="chip inline-flex items-center gap-1 rounded-lg bg-[var(--interactive-tint)] px-2 py-0.5 text-xs font-medium text-system-blue transition-all duration-fast"
+                  class="chip inline-flex items-center gap-1 rounded-lg bg-[var(--interactive-tint)] px-2 py-0.5 text-xs font-medium text-[var(--btn-tinted-color)] transition-all duration-fast"
                 >
                   {{ opt.label }}
                   @if (!disabled()) {
@@ -137,7 +142,7 @@ export interface DropdownGroup {
         [size]="16"
         class="mr-3 shrink-0 pointer-events-none transition-all duration-normal"
         [class]="isOpen()
-          ? 'text-system-blue rotate-180'
+          ? 'text-[var(--select-selected-color)] rotate-180'
           : 'text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]'"
         [style.transition-timing-function]="'var(--ease-spring)'"
       />
@@ -146,7 +151,7 @@ export interface DropdownGroup {
     <!-- Error / Hint -->
     <div class="mt-1.5 flex items-center px-1">
       @if (error()) {
-        <p [id]="inputId() + '-error'" role="alert" class="text-xs text-system-red">
+        <p [id]="inputId() + '-error'" role="alert" class="text-xs text-[var(--input-error-color)]">
           {{ error() }}
         </p>
       } @else if (hint()) {
@@ -170,14 +175,14 @@ export interface DropdownGroup {
         @if (searchable()) {
           <div class="search-container px-3 pt-3 pb-1.5">
             <div class="relative flex items-center rounded-lg bg-[var(--fill-primary)] border border-transparent transition-all duration-fast"
-              [class]="searchFocused() ? 'border-system-blue bg-[var(--surface-primary)]' : 'hover:bg-[var(--fill-secondary)]'"
+              [class]="searchFocused() ? 'border-[var(--search-focus-border)] bg-[var(--surface-primary)]' : 'hover:bg-[var(--fill-secondary)]'"
               [style.box-shadow]="searchFocused() ? 'var(--form-field-shadow), var(--form-control-glow)' : 'var(--form-field-shadow)'"
             >
               <svg
                 lucideIcon="search"
                 [size]="14"
                 class="ml-2.5 shrink-0 transition-colors duration-fast"
-                [class]="searchFocused() ? 'text-system-blue' : 'text-[var(--text-tertiary)]'"
+                [class]="searchFocused() ? 'text-[var(--search-icon-active-color)]' : 'text-[var(--text-tertiary)]'"
               />
               <input
                 #searchInput
@@ -240,7 +245,7 @@ export interface DropdownGroup {
                       [lucideIcon]="option.icon"
                       [size]="18"
                       class="shrink-0 transition-colors duration-fast"
-                      [class]="isSelected(option.value) ? 'text-system-blue' : 'text-[var(--text-tertiary)] group-hover/opt:text-[var(--text-secondary)]'"
+                      [class]="isSelected(option.value) ? 'text-[var(--select-selected-color)]' : 'text-[var(--text-tertiary)] group-hover/opt:text-[var(--text-secondary)]'"
                     />
                   }
                   <div class="flex-1 min-w-0">
@@ -254,7 +259,7 @@ export interface DropdownGroup {
                   <!-- Checkmark -->
                   @if (isSelected(option.value)) {
                     <span class="checkmark shrink-0">
-                      <svg viewBox="0 0 16 16" fill="none" class="h-4 w-4 text-system-blue" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <svg viewBox="0 0 16 16" fill="none" class="h-4 w-4 text-[var(--select-checkmark-color)]" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 8L6.5 11.5L13 4.5" class="animate-check" />
                       </svg>
                     </span>
@@ -282,7 +287,7 @@ export interface DropdownGroup {
                     [lucideIcon]="option.icon"
                     [size]="18"
                     class="shrink-0 transition-colors duration-fast"
-                    [class]="isSelected(option.value) ? 'text-system-blue' : 'text-[var(--text-tertiary)] group-hover/opt:text-[var(--text-secondary)]'"
+                    [class]="isSelected(option.value) ? 'text-[var(--select-selected-color)]' : 'text-[var(--text-tertiary)] group-hover/opt:text-[var(--text-secondary)]'"
                   />
                 }
                 <div class="flex-1 min-w-0">
@@ -295,7 +300,7 @@ export interface DropdownGroup {
                 </div>
                 @if (isSelected(option.value)) {
                   <span class="checkmark shrink-0">
-                    <svg viewBox="0 0 16 16" fill="none" class="h-4 w-4 text-system-blue" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 16 16" fill="none" class="h-4 w-4 text-[var(--select-checkmark-color)]" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M3 8L6.5 11.5L13 4.5" class="animate-check" />
                     </svg>
                   </span>
@@ -305,11 +310,43 @@ export interface DropdownGroup {
           }
 
           <!-- Empty state -->
-          @if (filteredFlatList().length === 0) {
+          @if (filteredFlatList().length === 0 && !showCreateOption()) {
             <div class="flex flex-col items-center justify-center py-8 px-4 text-center">
               <svg lucideIcon="search" [size]="32" class="text-[var(--text-quaternary)] mb-2" />
               <p class="text-sm font-medium text-[var(--text-secondary)]">No results found</p>
-              <p class="text-xs text-[var(--text-tertiary)] mt-0.5">Try a different search term</p>
+              @if (creatable() && searchQuery()) {
+                <p class="text-xs text-[var(--text-tertiary)] mt-1">Press Enter or click below to create it</p>
+              } @else {
+                <p class="text-xs text-[var(--text-tertiary)] mt-0.5">Try a different search term</p>
+              }
+            </div>
+          }
+
+          <!-- Creatable: Create new option -->
+          @if (showCreateOption()) {
+            <button
+              type="button"
+              class="create-option-btn option-item flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-all duration-fast hover:bg-[var(--fill-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+              (click)="createOption()"
+              aria-label="Create new option"
+            >
+              <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/15">
+                <svg lucideIcon="plus" [size]="12" class="text-[var(--color-primary)]" />
+              </span>
+              <span class="text-sm">
+                <span class="text-[var(--text-tertiary)]">Create </span>
+                <span class="font-semibold text-[var(--text-primary)]">&ldquo;{{ searchQuery().trim() }}&rdquo;</span>
+              </span>
+            </button>
+          }
+
+          <!-- Async load-more: loading spinner -->
+          @if (isLoadingMore()) {
+            <div class="flex items-center justify-center gap-2 py-3 text-xs text-[var(--text-tertiary)]">
+              <svg class="load-more-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+              Loading more…
             </div>
           }
         </div>
@@ -326,7 +363,7 @@ export interface DropdownGroup {
             @if (selectedValues().length > 0) {
               <button
                 type="button"
-                class="text-xs font-medium text-system-blue hover:text-system-blue-hover active:scale-95 transition-all duration-fast"
+                class="text-xs font-medium text-[var(--btn-plain-color)] hover:opacity-80 active:scale-95 transition-all duration-fast"
                 (click)="clearAll()"
               >
                 Clear all
@@ -428,6 +465,15 @@ export interface DropdownGroup {
         transform: translateY(0);
       }
     }
+
+    @keyframes load-more-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .load-more-spinner {
+      animation: load-more-spin 0.9s linear infinite;
+      flex-shrink: 0;
+    }
   `,
 })
 export class DropdownComponent implements OnDestroy {
@@ -446,12 +492,25 @@ export class DropdownComponent implements OnDestroy {
   readonly hint = input<string | null>(null);
   readonly inputId = input('dropdown-' + Math.random().toString(36).slice(2, 9));
   readonly maxSelections = input<number | null>(null);
+  /**
+   * Allow users to create new options by typing a value not in the list.
+   * Requires searchable=true to be useful. Emits optionCreated with the new option.
+   */
+  readonly creatable = input(false);
+  /**
+   * Async load-more function for infinite scroll.
+   * Called with the current search query and the next page number (0-indexed).
+   * Return an empty array or null/undefined to signal no more results.
+   */
+  readonly loadMoreFn = input<((query: string, page: number) => Promise<DropdownOption[]>) | null>(null);
 
   // ── Outputs ─────────────────────────────────────────────────
   readonly valueChange = output<string>();
   readonly valuesChange = output<string[]>();
   readonly opened = output<void>();
   readonly closed = output<void>();
+  /** Emits when a new option is created via the creatable mode. */
+  readonly optionCreated = output<DropdownOption>();
 
   // ── State ───────────────────────────────────────────────────
   protected readonly isOpen = signal(false);
@@ -460,6 +519,18 @@ export class DropdownComponent implements OnDestroy {
   protected readonly activeIndex = signal(-1);
   protected readonly selectedValues = signal<string[]>([]);
   protected readonly panelMinWidth = signal(0);
+  /** Dynamically added options from creatable mode */
+  protected readonly creatableOptions = signal<DropdownOption[]>([]);
+  /** Async-loaded options from loadMoreFn */
+  protected readonly asyncOptions = signal<DropdownOption[]>([]);
+  /** Whether a load-more request is in-flight */
+  protected readonly isLoadingMore = signal(false);
+  /** Current page index for infinite-scroll pagination */
+  private currentPage = 0;
+  /** Whether all pages have been loaded (loadMoreFn returned empty array) */
+  private allPagesLoaded = false;
+  /** Scroll listener attached to the options list element */
+  private optionsScrollHandler: (() => void) | null = null;
 
   // ── Injections ──────────────────────────────────────────────
   private readonly overlay = inject(Overlay);
@@ -481,18 +552,30 @@ export class DropdownComponent implements OnDestroy {
 
   // ── Sync input values to internal state ─────────────────────
   constructor() {
+    // Sync single-value input to internal selection state.
+    // untracked() prevents selectedValues from feeding back as a reactive
+    // dependency, which caused the infinite CD loop (NG0103).
     effect(() => {
       const v = this.value();
-      if (!this.multiple() && v) {
-        this.selectedValues.set([v]);
-      }
+      untracked(() => {
+        if (!this.multiple() && v && !this.selectedValues().includes(v)) {
+          this.selectedValues.set([v]);
+        }
+      });
     });
 
+    // Sync multi-value input to internal selection state.
     effect(() => {
       const vs = this.values();
-      if (this.multiple() && vs.length > 0) {
-        this.selectedValues.set([...vs]);
-      }
+      untracked(() => {
+        if (this.multiple() && vs.length > 0) {
+          const current = this.selectedValues();
+          const same = vs.length === current.length && vs.every((x, i) => x === current[i]);
+          if (!same) {
+            this.selectedValues.set([...vs]);
+          }
+        }
+      });
     });
   }
 
@@ -500,12 +583,25 @@ export class DropdownComponent implements OnDestroy {
 
   protected readonly hasGroups = computed(() => this.groups().length > 0);
 
-  /** Flat list of all available options (from either options or groups) */
+  /** All options including dynamically created and async-loaded ones */
   protected readonly allOptions = computed<DropdownOption[]>(() => {
-    if (this.hasGroups()) {
-      return this.groups().flatMap((g) => g.options);
-    }
-    return this.options();
+    const base = this.hasGroups()
+      ? this.groups().flatMap((g) => g.options)
+      : this.options();
+    return [...base, ...this.creatableOptions(), ...this.asyncOptions()];
+  });
+
+  /**
+   * Whether to show the "Create '...'" button.
+   * True when creatable=true, there's a non-empty search query,
+   * and the query doesn't exactly match an existing option.
+   */
+  protected readonly showCreateOption = computed(() => {
+    if (!this.creatable() || !this.searchQuery().trim()) return false;
+    const query = this.searchQuery().trim().toLowerCase();
+    return !this.allOptions().some(
+      (o) => o.label.toLowerCase() === query || o.value.toLowerCase() === query
+    );
   });
 
   /** Filtered flat options (search applied) */
@@ -580,7 +676,7 @@ export class DropdownComponent implements OnDestroy {
   protected readonly labelClasses = computed(() => {
     const floated = this.labelFloated();
     const colorClass = this.isOpen()
-      ? 'text-system-blue'
+      ? 'text-[var(--input-focus-border)]'
       : 'text-[var(--text-tertiary)]';
 
     if (floated) {
@@ -598,10 +694,10 @@ export class DropdownComponent implements OnDestroy {
   protected readonly triggerClasses = computed(() => {
     const base = 'backdrop-blur-sm';
     if (this.error()) {
-      return `${base} border-system-red bg-[var(--surface-primary)]`;
+      return `${base} border-[var(--input-error-border)] bg-[var(--surface-primary)]`;
     }
     if (this.isOpen()) {
-      return `${base} border-system-blue bg-[var(--surface-primary)]`;
+      return `${base} border-[var(--input-focus-border)] bg-[var(--surface-primary)]`;
     }
     return `${base} border-[var(--border-default)] bg-[var(--form-field-glass)] hover:border-[var(--border-opaque)]`;
   });
@@ -671,6 +767,11 @@ export class DropdownComponent implements OnDestroy {
       this.panelMinWidth.set(triggerEl.getBoundingClientRect().width);
     }
 
+    // Reset async pagination state when opening
+    this.currentPage = 0;
+    this.allPagesLoaded = false;
+    this.asyncOptions.set([]);
+
     const positions: ConnectedPosition[] = [
       {
         originX: 'start',
@@ -726,10 +827,27 @@ export class DropdownComponent implements OnDestroy {
         this.searchInputRef()?.nativeElement.focus();
       });
     }
+
+    // Attach scroll listener for infinite scroll (after a tick so the panel is in DOM)
+    requestAnimationFrame(() => {
+      const listEl = this.optionsListRef()?.nativeElement;
+      if (listEl && this.loadMoreFn()) {
+        this.optionsScrollHandler = () => this.onOptionsScroll(listEl);
+        listEl.addEventListener('scroll', this.optionsScrollHandler, { passive: true });
+        // Trigger initial load if list is short
+        this.tryLoadMore();
+      }
+    });
   }
 
   close(): void {
     if (!this.isOpen()) return;
+    // Remove scroll listener before detaching panel
+    const listEl = this.optionsListRef()?.nativeElement;
+    if (listEl && this.optionsScrollHandler) {
+      listEl.removeEventListener('scroll', this.optionsScrollHandler);
+      this.optionsScrollHandler = null;
+    }
     this.overlayRef?.detach();
     this.overlayRef?.dispose();
     this.overlayRef = null;
@@ -787,12 +905,73 @@ export class DropdownComponent implements OnDestroy {
     this.valuesChange.emit([]);
   }
 
+  /** Create a new option from the current search query (creatable mode). */
+  protected createOption(): void {
+    const label = this.searchQuery().trim();
+    if (!label || !this.creatable()) return;
+
+    const value = label.toLowerCase().replace(/\s+/g, '-');
+    const newOption: DropdownOption = { value, label };
+
+    // Add to internal creatable options list
+    this.creatableOptions.update((opts) => [...opts, newOption]);
+    this.optionCreated.emit(newOption);
+
+    // Immediately select the newly created option
+    this.selectOption(newOption);
+
+    // Clear search so it's not filtered out
+    this.searchQuery.set('');
+  }
+
   // ── Search Logic ────────────────────────────────────────────
 
   protected onSearchInput(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
     this.searchQuery.set(val);
     this.activeIndex.set(-1);
+
+    // Reset async pagination when search query changes
+    if (this.loadMoreFn()) {
+      this.currentPage = 0;
+      this.allPagesLoaded = false;
+      this.asyncOptions.set([]);
+      // Kick off fresh load for the new query
+      requestAnimationFrame(() => this.tryLoadMore());
+    }
+  }
+
+  // ── Async Infinite Scroll ───────────────────────────────────
+
+  private onOptionsScroll(listEl: HTMLElement): void {
+    if (this.isLoadingMore() || this.allPagesLoaded) return;
+    const { scrollTop, scrollHeight, clientHeight } = listEl;
+    const scrollRatio = (scrollTop + clientHeight) / scrollHeight;
+    if (scrollRatio >= 0.8) {
+      this.tryLoadMore();
+    }
+  }
+
+  private tryLoadMore(): void {
+    const fn = this.loadMoreFn();
+    if (!fn || this.isLoadingMore() || this.allPagesLoaded) return;
+
+    this.isLoadingMore.set(true);
+    fn(this.searchQuery(), this.currentPage)
+      .then((results) => {
+        if (!results || results.length === 0) {
+          this.allPagesLoaded = true;
+        } else {
+          this.asyncOptions.update((prev) => [...prev, ...results]);
+          this.currentPage++;
+        }
+      })
+      .catch(() => {
+        // Silently ignore load errors — retry will happen on next scroll
+      })
+      .finally(() => {
+        this.isLoadingMore.set(false);
+      });
   }
 
   protected clearSearch(): void {
@@ -876,6 +1055,9 @@ export class DropdownComponent implements OnDestroy {
         event.preventDefault();
         if (this.activeIndex() >= 0 && this.activeIndex() < total) {
           this.selectOption(navOptions[this.activeIndex()]);
+        } else if (event.key === 'Enter' && this.showCreateOption()) {
+          // Creatable mode: Enter creates the option when nothing is highlighted
+          this.createOption();
         }
         break;
 

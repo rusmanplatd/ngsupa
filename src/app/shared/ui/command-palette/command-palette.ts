@@ -5,7 +5,8 @@ import {
   computed,
   viewChild,
   ElementRef,
-  afterRenderEffect,
+  effect,
+  untracked,
   OnDestroy,
   PLATFORM_ID,
 } from '@angular/core';
@@ -227,7 +228,7 @@ import { CommandPaletteService, Command } from './command-palette.service';
       outline: none;
       font: var(--type-body);
       color: var(--text-primary);
-      caret-color: var(--color-system-blue);
+      caret-color: var(--color-primary);
     }
 
     .cmdk-header__input::placeholder {
@@ -328,7 +329,7 @@ import { CommandPaletteService, Command } from './command-palette.service';
     }
 
     .cmdk-item--active .cmdk-item__icon {
-      color: var(--color-system-blue);
+      color: var(--color-primary);
     }
 
     .cmdk-item--active .cmdk-item__enter {
@@ -356,7 +357,7 @@ import { CommandPaletteService, Command } from './command-palette.service';
 
     .cmdk-item--active .cmdk-item__icon {
       background: var(--interactive-tint-hover);
-      color: var(--color-system-blue);
+      color: var(--color-primary);
     }
 
     .cmdk-item__label {
@@ -441,13 +442,17 @@ export class CommandPaletteComponent implements OnDestroy {
   });
 
   constructor() {
-    // Auto-focus the search input when the palette opens
-    afterRenderEffect(() => {
+    // Auto-focus the search input when the palette opens.
+    // effect() only runs when service.open() changes (not on every render).
+    // untracked() around the DOM focus call prevents searchInputRef() from
+    // becoming a reactive dependency that re-triggers the effect.
+    effect(() => {
       if (this.service.open()) {
-        // Small delay to let the DOM render
-        setTimeout(() => {
-          this.searchInputRef()?.nativeElement.focus();
-        }, 10);
+        untracked(() => {
+          setTimeout(() => {
+            this.searchInputRef()?.nativeElement.focus();
+          }, 10);
+        });
       }
     });
   }

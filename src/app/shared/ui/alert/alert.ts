@@ -71,13 +71,13 @@ export class AlertComponent {
     if (this.dismissed()) return 'hidden';
     switch (this.variant()) {
       case 'success':
-        return 'bg-system-green-light text-system-green border-l-system-green';
+        return 'bg-[var(--alert-success-bg)] text-[var(--alert-success-color)] border-l-[var(--alert-success-border)]';
       case 'warning':
-        return 'bg-system-orange-light text-system-orange border-l-system-orange';
+        return 'bg-[var(--alert-warning-bg)] text-[var(--alert-warning-color)] border-l-[var(--alert-warning-border)]';
       case 'error':
-        return 'bg-system-red-light text-system-red border-l-system-red';
+        return 'bg-[var(--alert-error-bg)] text-[var(--alert-error-color)] border-l-[var(--alert-error-border)]';
       default:
-        return 'bg-system-blue-light text-system-blue border-l-system-blue';
+        return 'bg-[var(--alert-info-bg)] text-[var(--alert-info-color)] border-l-[var(--alert-info-border)]';
     }
   });
 

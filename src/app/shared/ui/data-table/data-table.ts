@@ -11,6 +11,7 @@ import {
   ElementRef,
   effect,
   type OnDestroy,
+  DOCUMENT,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { LucideDynamicIcon } from '@lucide/angular';
@@ -40,6 +41,8 @@ export interface DataTableColumnDef {
   sticky?: boolean;
   /** Custom template name matching appDataTableCell directive */
   templateKey?: string;
+  /** Enable per-column filtering for this column */
+  filterable?: boolean;
 }
 
 export interface SortState {
@@ -52,6 +55,48 @@ export interface PageState {
   pageSize: number;
   totalItems: number;
 }
+
+export interface TablePersistedState {
+  sortState: SortState;
+  hiddenColumns: string[];
+  pageSize: number;
+}
+
+// ── Advanced Filter Types ────────────────────────────────────
+
+export type FilterOperator =
+  | 'contains'
+  | 'not-contains'
+  | 'equals'
+  | 'not-equals'
+  | 'starts-with'
+  | 'ends-with'
+  | 'gt'
+  | 'lt'
+  | 'gte'
+  | 'lte';
+
+export interface ColumnFilter {
+  column: string;
+  operator: FilterOperator;
+  value: string;
+}
+
+export const FILTER_OPERATOR_LABELS: Record<FilterOperator, string> = {
+  'contains': 'Contains',
+  'not-contains': 'Does not contain',
+  'equals': 'Equals',
+  'not-equals': 'Not equals',
+  'starts-with': 'Starts with',
+  'ends-with': 'Ends with',
+  'gt': 'Greater than',
+  'lt': 'Less than',
+  'gte': 'Greater than or equal',
+  'lte': 'Less than or equal',
+};
+
+export const NUMERIC_OPERATORS: FilterOperator[] = ['gt', 'lt', 'gte', 'lte', 'equals', 'not-equals'];
+export const TEXT_OPERATORS: FilterOperator[] = ['contains', 'not-contains', 'equals', 'not-equals', 'starts-with', 'ends-with'];
 
 // ═══════════════════════════════════════════════════════════════
 // Cell Template Directive
@@ -74,6 +119,7 @@ export class DataTableCellDirective {
   imports: [NgTemplateOutlet, LucideDynamicIcon, CheckboxComponent, EmptyStateComponent, DragDropModule],
   host: {
     class: 'block',
+    '(document:click)': 'onDocumentClickForFilter($event)',
   },
   template: `
     <!-- ─── Toolbar ─────────────────────────────────────── -->
@@ -83,7 +129,7 @@ export class DataTableCellDirective {
         <div
           class="search-wrapper relative flex items-center flex-1 max-w-xs rounded-xl border transition-all duration-normal"
           [class]="searchFocused()
-            ? 'border-system-blue bg-[var(--surface-primary)]'
+            ? 'border-[var(--color-primary)] bg-[var(--surface-primary)]'
             : 'border-[var(--border-default)] bg-[var(--form-field-glass)] hover:border-[var(--border-opaque)]'"
           [style.box-shadow]="searchFocused() ? 'var(--form-field-shadow), var(--form-control-glow)' : 'var(--form-field-shadow)'"
         >
@@ -91,7 +137,7 @@ export class DataTableCellDirective {
             lucideIcon="search"
             [size]="15"
             class="ml-3 shrink-0 transition-colors duration-fast"
-            [class]="searchFocused() ? 'text-system-blue' : 'text-[var(--text-tertiary)]'"
+            [class]="searchFocused() ? 'text-[var(--color-primary)]' : 'text-[var(--text-tertiary)]'"
           />
           <input
             type="text"
@@ -122,17 +168,106 @@ export class DataTableCellDirective {
 
       <!-- Selection count -->
       @if (selectable() && selectedRows().length > 0) {
-        <span class="selection-badge inline-flex items-center gap-1.5 rounded-full bg-[var(--interactive-tint)] px-3 py-1 text-xs font-semibold text-system-blue">
+        <span class="selection-badge inline-flex items-center gap-1.5 rounded-full bg-[var(--interactive-tint)] px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">
           {{ selectedRows().length }} selected
         </span>
       }
 
       <!-- Results count -->
-      @if (searchQuery() && !loading()) {
+      @if ((searchQuery() || activeFilters().length > 0) && !loading()) {
         <span class="text-xs text-[var(--text-tertiary)]">
           {{ filteredData().length }} result{{ filteredData().length !== 1 ? 's' : '' }}
         </span>
       }
+
+      <!-- Active filters badge -->
+      @if (activeFilters().length > 0) {
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-full bg-[var(--interactive-tint)] px-3 py-1 text-xs font-semibold text-[var(--color-primary)] transition-all duration-fast hover:bg-[var(--interactive-tint-hover)] active:scale-95"
+          (click)="clearAllFilters()"
+          aria-label="Clear all column filters"
+        >
+          <svg lucideIcon="filter-x" [size]="12" />
+          {{ activeFilters().length }} filter{{ activeFilters().length !== 1 ? 's' : '' }}
+          <svg lucideIcon="x" [size]="11" />
+        </button>
+      }
+
+      <!-- Column Visibility Toggle -->
+      <div class="relative" #colVisContainer>
+        <button
+          type="button"
+          class="col-vis-btn inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--form-field-glass)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-all duration-fast hover:border-[var(--border-opaque)] hover:bg-[var(--fill-primary)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] active:scale-95"
+          [class.bg-\[var\(--interactive-tint\)\]]="columnVisibilityOpen()"
+          [class.text-\[var\(--color-primary\)\]]="columnVisibilityOpen()"
+          [class.border-\[var\(--color-primary\)\]]="columnVisibilityOpen()"
+          (click)="columnVisibilityOpen.update(v => !v)"
+          aria-label="Toggle column visibility"
+          [attr.aria-expanded]="columnVisibilityOpen()"
+          [attr.aria-controls]="'col-vis-panel'"
+        >
+          <svg lucideIcon="columns-3" [size]="14" />
+          Columns
+          @if (hiddenColumns().size > 0) {
+            <span class="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-primary)] px-1 text-2xs font-bold text-white">
+              {{ hiddenColumns().size }}
+            </span>
+          }
+        </button>
+
+        @if (columnVisibilityOpen()) {
+          <div
+            id="col-vis-panel"
+            role="dialog"
+            aria-label="Toggle columns"
+            class="col-vis-panel absolute right-0 top-full z-50 mt-1.5 min-w-[180px] rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-thick)] p-1.5 shadow-xl backdrop-blur-xl"
+          >
+            <p class="px-2.5 py-1.5 text-2xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Toggle Columns</p>
+            <div role="separator" class="mx-2 my-1 border-t border-[var(--separator)]"></div>
+            @for (col of columns(); track col.key) {
+              <button
+                type="button"
+                class="col-vis-item flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--text-primary)] transition-all duration-fast hover:bg-[var(--fill-primary)] active:scale-98"
+                (click)="toggleColumnVisibility(col.key)"
+                [attr.aria-pressed]="!hiddenColumns().has(col.key)"
+              >
+                <span
+                  class="flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors duration-fast"
+                  [class]="!hiddenColumns().has(col.key)
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]'
+                    : 'border-[var(--border-default)] bg-transparent'"
+                >
+                  @if (!hiddenColumns().has(col.key)) {
+                    <svg lucideIcon="check" [size]="10" class="text-white" />
+                  }
+                </span>
+                <span class="flex-1 truncate">{{ col.header }}</span>
+              </button>
+            }
+            <div role="separator" class="mx-2 my-1 border-t border-[var(--separator)]"></div>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-tertiary)] transition-colors duration-fast hover:bg-[var(--fill-primary)] hover:text-[var(--text-secondary)]"
+              (click)="resetColumnVisibility()"
+            >
+              <svg lucideIcon="rotate-ccw" [size]="12" />
+              Show all columns
+            </button>
+          </div>
+        }
+      </div>
+
+      <!-- Export CSV Button -->
+      <button
+        type="button"
+        class="toolbar-export-btn inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-default)] bg-[var(--form-field-glass)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-all duration-fast hover:border-[var(--border-opaque)] hover:bg-[var(--fill-primary)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] active:scale-95"
+        (click)="exportToCsv()"
+        aria-label="Export table to CSV"
+      >
+        <svg lucideIcon="download" [size]="14" />
+        Export
+      </button>
 
       <!-- Projected toolbar actions -->
       <ng-content select="[tableToolbar]" />
@@ -149,7 +284,7 @@ export class DataTableCellDirective {
         role="grid"
         class="w-full border-collapse"
         [attr.aria-rowcount]="filteredData().length"
-        [attr.aria-colcount]="columns().length + (selectable() ? 1 : 0) + (expandable() ? 1 : 0)"
+        [attr.aria-colcount]="visibleColumns().length + (selectable() ? 1 : 0) + (expandable() ? 1 : 0)"
       >
         <!-- ─── Header ────────────────────────────────────── -->
         <thead>
@@ -181,8 +316,8 @@ export class DataTableCellDirective {
               </th>
             }
 
-            <!-- Data columns -->
-            @for (col of columns(); track col.key) {
+            <!-- Data columns (only visible) -->
+            @for (col of visibleColumns(); track col.key) {
               <th
                 role="columnheader"
                 class="data-header-cell group"
@@ -192,9 +327,9 @@ export class DataTableCellDirective {
                 [style.min-width]="col.minWidth || '80px'"
                 [style.text-align]="col.align || 'start'"
                 [attr.aria-sort]="col.sortable ? ariaSort(col.key) : null"
-                (click)="col.sortable ? toggleSort(col.key) : null"
-                (keydown.enter)="col.sortable ? toggleSort(col.key) : null"
-                (keydown.space)="col.sortable ? toggleSort(col.key) : null; $event.preventDefault()"
+                (click)="col.sortable && !filterPopoverOpen(col.key) ? toggleSort(col.key) : null"
+                (keydown.enter)="col.sortable && !filterPopoverOpen(col.key) ? toggleSort(col.key) : null"
+                (keydown.space)="onHeaderSpaceKey($event, col)"
                 [attr.tabindex]="col.sortable ? 0 : null"
               >
                 <div class="header-content" [class]="headerAlignClass(col)">
@@ -209,6 +344,79 @@ export class DataTableCellDirective {
                         <svg lucideIcon="chevrons-up-down" [size]="14" />
                       }
                     </span>
+                  }
+                  <!-- Filter indicator dot -->
+                  @if (getColumnFilter(col.key)) {
+                    <span
+                      class="filter-indicator"
+                      [title]="getFilterLabel(col.key)"
+                    ></span>
+                  }
+                  <!-- Filter button -->
+                  @if (col.filterable) {
+                    <div class="relative" (click)="$event.stopPropagation()">
+                      <button
+                        type="button"
+                        class="filter-btn"
+                        [class.filter-btn--active]="getColumnFilter(col.key)"
+                        [attr.aria-label]="'Filter ' + col.header"
+                        [attr.aria-expanded]="filterPopoverOpen(col.key)"
+                        (click)="toggleFilterPopover(col.key)"
+                      >
+                        <svg lucideIcon="filter" [size]="12" />
+                      </button>
+                      <!-- Filter Popover -->
+                      @if (filterPopoverOpen(col.key)) {
+                        <div
+                          class="filter-popover"
+                          role="dialog"
+                          [attr.aria-label]="'Filter ' + col.header"
+                          (click)="$event.stopPropagation()"
+                        >
+                          <p class="filter-popover-title">Filter: {{ col.header }}</p>
+                          <!-- Operator selector -->
+                          <select
+                            class="filter-operator-select"
+                            [value]="getFilterDraft(col.key).operator"
+                            (change)="setFilterDraftOperator(col.key, $event)"
+                            aria-label="Filter operator"
+                          >
+                            @for (op of getAvailableOperators(col.key); track op) {
+                              <option [value]="op">{{ FILTER_OPERATOR_LABELS[op] }}</option>
+                            }
+                          </select>
+                          <!-- Value input -->
+                          <input
+                            type="text"
+                            class="filter-value-input"
+                            [value]="getFilterDraft(col.key).value"
+                            (input)="setFilterDraftValue(col.key, $event)"
+                            (keydown.enter)="applyFilter(col.key)"
+                            (keydown.escape)="closeFilterPopover(col.key)"
+                            [placeholder]="getFilterPlaceholder(col.key)"
+                            aria-label="Filter value"
+                          />
+                          <!-- Actions -->
+                          <div class="filter-popover-actions">
+                            <button
+                              type="button"
+                              class="filter-clear-btn"
+                              (click)="clearColumnFilter(col.key)"
+                              [disabled]="!getColumnFilter(col.key)"
+                            >
+                              Clear
+                            </button>
+                            <button
+                              type="button"
+                              class="filter-apply-btn"
+                              (click)="applyFilter(col.key)"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        </div>
+                      }
+                    </div>
                   }
                 </div>
 
@@ -243,7 +451,7 @@ export class DataTableCellDirective {
                 @if (selectable()) {
                   <td class="selection-cell"><div class="skeleton-bone skeleton-checkbox"></div></td>
                 }
-                @for (col of columns(); track col.key) {
+                @for (col of visibleColumns(); track col.key) {
                   <td
                     role="gridcell"
                     class="data-cell"
@@ -319,8 +527,8 @@ export class DataTableCellDirective {
                   </td>
                 }
 
-                <!-- Data cells -->
-                @for (col of columns(); track col.key) {
+                <!-- Data cells (only visible columns) -->
+                @for (col of visibleColumns(); track col.key) {
                   <td
                     role="gridcell"
                     class="data-cell"
@@ -446,6 +654,13 @@ export class DataTableComponent<T extends Record<string, unknown>> {
   readonly expandedRowTemplate = input<TemplateRef<{ $implicit: T }> | null>(null);
   /** Enable drag-to-reorder rows. Emits rowReordered when a row is dropped. */
   readonly draggableRows = input(false);
+  /**
+   * localStorage key for state persistence (sort, hidden columns, page size).
+   * Defaults to null (persistence disabled). Provide a unique key per table instance.
+   */
+  readonly storageKey = input<string | null>(null);
+  /** CSV filename prefix when exporting */
+  readonly exportFilename = input('table-export');
 
   // ── Outputs ─────────────────────────────────────────────────
   readonly sortChange = output<SortState>();
@@ -453,6 +668,7 @@ export class DataTableComponent<T extends Record<string, unknown>> {
   readonly rowClick = output<T>();
   readonly pageChange = output<PageState>();
   readonly rowReordered = output<{ previousIndex: number; currentIndex: number; data: T[] }>();
+  readonly filterChange = output<ColumnFilter[]>();
 
   // ── Content Children (cell templates) ───────────────────────
   readonly cellTemplates = contentChildren(DataTableCellDirective);
@@ -465,7 +681,20 @@ export class DataTableComponent<T extends Record<string, unknown>> {
   protected readonly expandedKeys = signal<Set<string | number>>(new Set());
   protected readonly currentPageState = signal<PageState>({ pageIndex: 0, pageSize: 10, totalItems: 0 });
 
+  /** Set of column keys that are hidden */
+  protected readonly hiddenColumns = signal<Set<string>>(new Set());
+  /** Whether the column visibility panel is open */
+  protected readonly columnVisibilityOpen = signal(false);
+
+  /** Active per-column filters */
+  protected readonly activeFilters = signal<ColumnFilter[]>([]);
+  /** Which column's filter popover is currently open (column key or null) */
+  private readonly openFilterKey = signal<string | null>(null);
+  /** Draft filter state per column (before apply) */
+  private readonly filterDrafts = signal<Map<string, { operator: FilterOperator; value: string }>>(new Map());
+
   private readonly liveAnnouncer = inject(LiveAnnouncer);
+  private readonly document = inject(DOCUMENT);
 
   // Debounce timer for search
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -478,42 +707,113 @@ export class DataTableComponent<T extends Record<string, unknown>> {
   private readonly resizeMouseMoveHandler = (e: MouseEvent) => this.onResizeMove(e);
   private readonly resizeMouseUpHandler = () => this.onResizeEnd();
 
+  // Close col-vis panel on outside click
+  private readonly outsideClickHandler = (e: MouseEvent) => {
+    if (!this.columnVisibilityOpen()) return;
+    const host = (e.target as HTMLElement).closest('.col-vis-btn, .col-vis-panel');
+    if (!host) this.columnVisibilityOpen.set(false);
+  };
+
   // Skeleton placeholder rows
   protected readonly skeletonRows = Array.from({ length: 8 }, (_, i) => i);
   private readonly skeletonWidths = ['60%', '80%', '45%', '70%', '55%', '75%', '40%', '90%'];
 
   constructor() {
-    // Sync pageSize input to internal page state
+    // Sync pageSize input to internal page state — guard prevents infinite CD loop
     effect(() => {
       const ps = this.pageSize();
-      this.currentPageState.update((s) => ({ ...s, pageSize: ps, pageIndex: 0 }));
+      if (this.currentPageState().pageSize !== ps) {
+        this.currentPageState.update((s) => ({ ...s, pageSize: ps, pageIndex: 0 }));
+      }
     });
+
+    // Load persisted state when storageKey becomes available
+    effect(() => {
+      const key = this.storageKey();
+      if (key) {
+        this.loadState(key);
+      }
+    });
+
+    // Persist state on change
+    effect(() => {
+      const key = this.storageKey();
+      const sort = this.sortState();
+      const hidden = this.hiddenColumns();
+      const pageSize = this.currentPageState().pageSize;
+      if (key) {
+        this.saveState(key, { sortState: sort, hiddenColumns: Array.from(hidden), pageSize });
+      }
+    });
+
+    // Outside click handler for column visibility panel
+    this.document.addEventListener('click', this.outsideClickHandler, true);
   }
 
   // ── Computed ────────────────────────────────────────────────
 
+  /** Columns currently visible (hidden columns filtered out) */
+  protected readonly visibleColumns = computed<DataTableColumnDef[]>(() => {
+    const hidden = this.hiddenColumns();
+    return this.columns().filter((col) => !hidden.has(col.key));
+  });
+
   /** Total number of columns including selection/expand */
   protected readonly totalColumnCount = computed(() => {
-    let count = this.columns().length;
+    let count = this.visibleColumns().length;
     if (this.selectable()) count++;
     if (this.expandable()) count++;
     return count;
   });
 
-  /** Filtered data (search applied) */
+  /** Filtered data (global search + per-column filters applied) */
   protected readonly filteredData = computed<T[]>(() => {
     const query = this.searchQuery().toLowerCase().trim();
-    const items = this.data();
-    if (!query) return items;
+    const filters = this.activeFilters();
+    let items = this.data();
 
-    const cols = this.columns();
-    return items.filter((row) =>
-      cols.some((col) => {
-        const val = row[col.key];
-        if (val == null) return false;
-        return String(val).toLowerCase().includes(query);
-      })
-    );
+    // Apply global search
+    if (query) {
+      const cols = this.columns();
+      items = items.filter((row) =>
+        cols.some((col) => {
+          const val = row[col.key];
+          if (val == null) return false;
+          return String(val).toLowerCase().includes(query);
+        })
+      );
+    }
+
+    // Apply per-column filters
+    for (const filter of filters) {
+      const { column, operator, value } = filter;
+      const filterVal = value.toLowerCase().trim();
+      if (!filterVal) continue;
+
+      items = items.filter((row) => {
+        const cell = row[column];
+        if (cell == null) return false;
+        const cellStr = String(cell).toLowerCase();
+        const cellNum = parseFloat(String(cell));
+        const filterNum = parseFloat(filterVal);
+
+        switch (operator) {
+          case 'contains':     return cellStr.includes(filterVal);
+          case 'not-contains': return !cellStr.includes(filterVal);
+          case 'equals':       return cellStr === filterVal;
+          case 'not-equals':   return cellStr !== filterVal;
+          case 'starts-with':  return cellStr.startsWith(filterVal);
+          case 'ends-with':    return cellStr.endsWith(filterVal);
+          case 'gt':           return !isNaN(cellNum) && !isNaN(filterNum) ? cellNum > filterNum : cellStr > filterVal;
+          case 'lt':           return !isNaN(cellNum) && !isNaN(filterNum) ? cellNum < filterNum : cellStr < filterVal;
+          case 'gte':          return !isNaN(cellNum) && !isNaN(filterNum) ? cellNum >= filterNum : cellStr >= filterVal;
+          case 'lte':          return !isNaN(cellNum) && !isNaN(filterNum) ? cellNum <= filterNum : cellStr <= filterVal;
+          default:             return true;
+        }
+      });
+    }
+
+    return items;
   });
 
   /** Sorted data (sort applied on top of filter) */
@@ -637,6 +937,216 @@ export class DataTableComponent<T extends Record<string, unknown>> {
     return this.skeletonWidths[index % this.skeletonWidths.length];
   }
 
+  // ── Column Visibility ────────────────────────────────────────
+
+  protected toggleColumnVisibility(key: string): void {
+    this.hiddenColumns.update((hidden) => {
+      const next = new Set(hidden);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        // Don't hide the last visible column
+        if (this.visibleColumns().length <= 1) return hidden;
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  protected resetColumnVisibility(): void {
+    this.hiddenColumns.set(new Set());
+    this.columnVisibilityOpen.set(false);
+    this.liveAnnouncer.announce('All columns visible', 'polite');
+  }
+
+  // ── Per-Column Filtering ─────────────────────────────────────
+
+  /** Expose operator labels to template */
+  protected readonly FILTER_OPERATOR_LABELS = FILTER_OPERATOR_LABELS;
+
+  protected filterPopoverOpen(colKey: string): boolean {
+    return this.openFilterKey() === colKey;
+  }
+
+  protected toggleFilterPopover(colKey: string): void {
+    if (this.openFilterKey() === colKey) {
+      this.openFilterKey.set(null);
+    } else {
+      this.openFilterKey.set(colKey);
+      // Init draft from existing filter or default
+      const existing = this.activeFilters().find((f) => f.column === colKey);
+      this.filterDrafts.update((m) => {
+        const next = new Map(m);
+        next.set(colKey, {
+          operator: existing?.operator ?? 'contains',
+          value: existing?.value ?? '',
+        });
+        return next;
+      });
+    }
+  }
+
+  protected closeFilterPopover(colKey: string): void {
+    if (this.openFilterKey() === colKey) {
+      this.openFilterKey.set(null);
+    }
+  }
+
+  protected getColumnFilter(colKey: string): ColumnFilter | undefined {
+    return this.activeFilters().find((f) => f.column === colKey);
+  }
+
+  protected getFilterDraft(colKey: string): { operator: FilterOperator; value: string } {
+    return this.filterDrafts().get(colKey) ?? { operator: 'contains', value: '' };
+  }
+
+  protected setFilterDraftOperator(colKey: string, event: Event): void {
+    const op = (event.target as HTMLSelectElement).value as FilterOperator;
+    this.filterDrafts.update((m) => {
+      const next = new Map(m);
+      const current = next.get(colKey) ?? { operator: 'contains', value: '' };
+      next.set(colKey, { ...current, operator: op });
+      return next;
+    });
+  }
+
+  protected setFilterDraftValue(colKey: string, event: Event): void {
+    const val = (event.target as HTMLInputElement).value;
+    this.filterDrafts.update((m) => {
+      const next = new Map(m);
+      const current = next.get(colKey) ?? { operator: 'contains', value: '' };
+      next.set(colKey, { ...current, value: val });
+      return next;
+    });
+  }
+
+  protected applyFilter(colKey: string): void {
+    const draft = this.getFilterDraft(colKey);
+    if (!draft.value.trim()) {
+      this.clearColumnFilter(colKey);
+      return;
+    }
+    this.activeFilters.update((filters) => {
+      const without = filters.filter((f) => f.column !== colKey);
+      return [
+        ...without,
+        { column: colKey, operator: draft.operator, value: draft.value.trim() },
+      ];
+    });
+    this.currentPageState.update((s) => ({ ...s, pageIndex: 0 }));
+    this.openFilterKey.set(null);
+    this.filterChange.emit(this.activeFilters());
+    const col = this.columns().find((c) => c.key === colKey);
+    this.liveAnnouncer.announce(
+      `Filter applied to ${col?.header ?? colKey}: ${FILTER_OPERATOR_LABELS[draft.operator]} "${draft.value.trim()}"`,
+      'polite'
+    );
+  }
+
+  protected clearColumnFilter(colKey: string): void {
+    this.activeFilters.update((filters) => filters.filter((f) => f.column !== colKey));
+    this.openFilterKey.set(null);
+    this.filterChange.emit(this.activeFilters());
+    const col = this.columns().find((c) => c.key === colKey);
+    this.liveAnnouncer.announce(`Filter cleared for ${col?.header ?? colKey}`, 'polite');
+  }
+
+  clearAllFilters(): void {
+    this.activeFilters.set([]);
+    this.openFilterKey.set(null);
+    this.currentPageState.update((s) => ({ ...s, pageIndex: 0 }));
+    this.filterChange.emit([]);
+    this.liveAnnouncer.announce('All column filters cleared', 'polite');
+  }
+
+  protected getFilterLabel(colKey: string): string {
+    const filter = this.getColumnFilter(colKey);
+    if (!filter) return '';
+    return `${FILTER_OPERATOR_LABELS[filter.operator]}: "${filter.value}"`;
+  }
+
+  protected getAvailableOperators(colKey: string): FilterOperator[] {
+    // Use all operators — numeric operators work on string comparisons too
+    return ['contains', 'not-contains', 'equals', 'not-equals', 'starts-with', 'ends-with', 'gt', 'gte', 'lt', 'lte'];
+  }
+
+  protected getFilterPlaceholder(colKey: string): string {
+    const draft = this.getFilterDraft(colKey);
+    if (['gt', 'lt', 'gte', 'lte'].includes(draft.operator)) return 'Enter a number…';
+    return 'Enter a value…';
+  }
+
+  /** Close open filter popovers on outside click */
+  protected onDocumentClickForFilter(event: MouseEvent): void {
+    if (!this.openFilterKey()) return;
+    const target = event.target as HTMLElement;
+    if (!target.closest('.filter-popover') && !target.closest('.filter-btn')) {
+      this.openFilterKey.set(null);
+    }
+  }
+
+  // ── CSV Export ───────────────────────────────────────────────
+
+  exportToCsv(): void {
+    const cols = this.visibleColumns();
+    const rows = this.sortedData();
+
+    // Build header row
+    const header = cols.map((c) => `"${c.header.replace(/"/g, '""')}"`).join(',');
+
+    // Build data rows
+    const body = rows.map((row) =>
+      cols.map((col) => {
+        const val = row[col.key];
+        if (val == null) return '';
+        const str = String(val).replace(/"/g, '""');
+        // Wrap in quotes if contains comma, newline, or quote
+        return /[,"\n\r]/.test(str) ? `"${str}"` : str;
+      }).join(',')
+    );
+
+    const csv = [header, ...body].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const filename = `${this.exportFilename()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const a = this.document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    this.document.body.appendChild(a);
+    a.click();
+    this.document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    this.liveAnnouncer.announce(`Table exported to ${filename}`, 'polite');
+  }
+
+  // ── State Persistence ────────────────────────────────────────
+
+  private loadState(key: string): void {
+    try {
+      const raw = localStorage.getItem(`dt-state-${key}`);
+      if (!raw) return;
+      const state = JSON.parse(raw) as TablePersistedState;
+      if (state.sortState) this.sortState.set(state.sortState);
+      if (Array.isArray(state.hiddenColumns)) this.hiddenColumns.set(new Set(state.hiddenColumns));
+      if (state.pageSize) {
+        this.currentPageState.update((s) => ({ ...s, pageSize: state.pageSize, pageIndex: 0 }));
+      }
+    } catch {
+      // Ignore invalid stored state
+    }
+  }
+
+  private saveState(key: string, state: TablePersistedState): void {
+    try {
+      localStorage.setItem(`dt-state-${key}`, JSON.stringify(state));
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
   // ── Actions ─────────────────────────────────────────────────
 
   /** Sort */
@@ -668,6 +1178,12 @@ export class DataTableComponent<T extends Record<string, unknown>> {
     } else {
       this.liveAnnouncer.announce('Sort cleared', 'polite');
     }
+  }
+
+  protected onHeaderSpaceKey(event: Event, col: DataTableColumnDef): void {
+    if (!col.sortable || this.filterPopoverOpen(col.key)) return;
+    event.preventDefault();
+    this.toggleSort(col.key);
   }
 
   /** Search */
@@ -853,5 +1369,12 @@ export class DataTableComponent<T extends Record<string, unknown>> {
         data: dataArr,
       });
     }
+  }
+
+  ngOnDestroy(): void {
+    this.document.removeEventListener('click', this.outsideClickHandler, true);
+    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+    document.removeEventListener('mousemove', this.resizeMouseMoveHandler);
+    document.removeEventListener('mouseup', this.resizeMouseUpHandler);
   }
 }

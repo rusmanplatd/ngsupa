@@ -9,6 +9,7 @@ import {
   OnDestroy,
   viewChild,
   effect,
+  untracked,
   ViewContainerRef,
   TemplateRef,
   forwardRef,
@@ -85,7 +86,7 @@ export interface SelectGroup {
             <div class="flex flex-wrap gap-1 min-h-[1.5rem]">
               @for (opt of visibleChips(); track opt.value) {
                 <span
-                  class="chip inline-flex items-center gap-1 rounded-lg bg-[var(--interactive-tint)] px-2 py-0.5 text-xs font-medium text-system-blue transition-all duration-fast"
+                  class="chip inline-flex items-center gap-1 rounded-lg bg-[var(--interactive-tint)] px-2 py-0.5 text-xs font-medium text-[var(--btn-tinted-color)] transition-all duration-fast"
                 >
                   @if (opt.icon) {
                     <svg
@@ -157,7 +158,7 @@ export interface SelectGroup {
         [size]="16"
         class="mr-3 shrink-0 pointer-events-none transition-all duration-normal"
         [class]="isOpen()
-          ? 'text-system-blue rotate-180'
+          ? 'text-[var(--select-selected-color)] rotate-180'
           : 'text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]'"
         [style.transition-timing-function]="'var(--ease-spring)'"
       />
@@ -166,7 +167,7 @@ export interface SelectGroup {
     <!-- Error / Hint -->
     <div class="mt-1.5 flex items-center px-1">
       @if (error()) {
-        <p [id]="inputId() + '-error'" role="alert" class="text-xs text-system-red">
+        <p [id]="inputId() + '-error'" role="alert" class="text-xs text-[var(--input-error-color)]">
           {{ error() }}
         </p>
       } @else if (hint()) {
@@ -190,14 +191,14 @@ export interface SelectGroup {
         @if (searchable()) {
           <div class="search-container px-3 pt-3 pb-1.5">
             <div class="relative flex items-center rounded-lg bg-[var(--fill-primary)] border border-transparent transition-all duration-fast"
-              [class]="searchFocused() ? 'border-system-blue bg-[var(--surface-primary)]' : 'hover:bg-[var(--fill-secondary)]'"
+              [class]="searchFocused() ? 'border-[var(--search-focus-border)] bg-[var(--surface-primary)]' : 'hover:bg-[var(--fill-secondary)]'"
               [style.box-shadow]="searchFocused() ? 'var(--form-field-shadow), var(--form-control-glow)' : 'var(--form-field-shadow)'"
             >
               <svg
                 lucideIcon="search"
                 [size]="14"
                 class="ml-2.5 shrink-0 transition-colors duration-fast"
-                [class]="searchFocused() ? 'text-system-blue' : 'text-[var(--text-tertiary)]'"
+                [class]="searchFocused() ? 'text-[var(--search-icon-active-color)]' : 'text-[var(--text-tertiary)]'"
               />
               <input
                 #searchInput
@@ -260,7 +261,7 @@ export interface SelectGroup {
                       [lucideIcon]="option.icon"
                       [size]="18"
                       class="shrink-0 transition-colors duration-fast"
-                      [class]="isSelected(option.value) ? 'text-system-blue' : 'text-[var(--text-tertiary)] group-hover/opt:text-[var(--text-secondary)]'"
+                      [class]="isSelected(option.value) ? 'text-[var(--select-selected-color)]' : 'text-[var(--text-tertiary)] group-hover/opt:text-[var(--text-secondary)]'"
                     />
                   }
                   <div class="flex-1 min-w-0">
@@ -274,7 +275,7 @@ export interface SelectGroup {
                   <!-- Checkmark -->
                   @if (isSelected(option.value)) {
                     <span class="checkmark shrink-0">
-                      <svg viewBox="0 0 16 16" fill="none" class="h-4 w-4 text-system-blue" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <svg viewBox="0 0 16 16" fill="none" class="h-4 w-4 text-[var(--select-checkmark-color)]" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 8L6.5 11.5L13 4.5" class="animate-check" />
                       </svg>
                     </span>
@@ -302,7 +303,7 @@ export interface SelectGroup {
                     [lucideIcon]="option.icon"
                     [size]="18"
                     class="shrink-0 transition-colors duration-fast"
-                    [class]="isSelected(option.value) ? 'text-system-blue' : 'text-[var(--text-tertiary)] group-hover/opt:text-[var(--text-secondary)]'"
+                    [class]="isSelected(option.value) ? 'text-[var(--select-selected-color)]' : 'text-[var(--text-tertiary)] group-hover/opt:text-[var(--text-secondary)]'"
                   />
                 }
                 <div class="flex-1 min-w-0">
@@ -315,7 +316,7 @@ export interface SelectGroup {
                 </div>
                 @if (isSelected(option.value)) {
                   <span class="checkmark shrink-0">
-                    <svg viewBox="0 0 16 16" fill="none" class="h-4 w-4 text-system-blue" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 16 16" fill="none" class="h-4 w-4 text-[var(--select-checkmark-color)]" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M3 8L6.5 11.5L13 4.5" class="animate-check" />
                     </svg>
                   </span>
@@ -346,7 +347,7 @@ export interface SelectGroup {
             @if (internalValues().length > 0) {
               <button
                 type="button"
-                class="text-xs font-medium text-system-blue hover:text-system-blue-hover active:scale-95 transition-all duration-fast"
+                class="text-xs font-medium text-[var(--btn-plain-color)] hover:opacity-80 active:scale-95 transition-all duration-fast"
                 (click)="clearAll()"
               >
                 Clear all
@@ -504,8 +505,8 @@ export class SelectComponent implements OnDestroy, ControlValueAccessor {
   private readonly searchInputRef = viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
   // ── CVA state ───────────────────────────────────────────────
-  private cvgOnChange: (val: string | string[]) => void = () => {};
-  private cvaOnTouched: () => void = () => {};
+  private cvgOnChange: (val: string | string[]) => void = () => { };
+  private cvaOnTouched: () => void = () => { };
   private readonly isDisabledCva = signal(false);
 
   // ── ControlValueAccessor ────────────────────────────────────
@@ -533,18 +534,30 @@ export class SelectComponent implements OnDestroy, ControlValueAccessor {
 
   // ── Sync input values to internal state ─────────────────────
   constructor() {
+    // Sync single-value input to internal selection state.
+    // untracked() prevents internalValues from feeding back as a reactive
+    // dependency, which caused the infinite CD loop (NG0103).
     effect(() => {
       const v = this.value();
-      if (!this.multiple() && v) {
-        this.internalValues.set([v]);
-      }
+      untracked(() => {
+        if (!this.multiple() && v && !this.internalValues().includes(v)) {
+          this.internalValues.set([v]);
+        }
+      });
     });
 
+    // Sync multi-value input to internal selection state.
     effect(() => {
       const vs = this.values();
-      if (this.multiple() && vs.length > 0) {
-        this.internalValues.set([...vs]);
-      }
+      untracked(() => {
+        if (this.multiple() && vs.length > 0) {
+          const current = this.internalValues();
+          const same = vs.length === current.length && vs.every((x, i) => x === current[i]);
+          if (!same) {
+            this.internalValues.set([...vs]);
+          }
+        }
+      });
     });
   }
 
@@ -632,7 +645,7 @@ export class SelectComponent implements OnDestroy, ControlValueAccessor {
   protected readonly labelClasses = computed(() => {
     const floated = this.labelFloated();
     const colorClass = this.isOpen()
-      ? 'text-system-blue'
+      ? 'text-[var(--input-focus-border)]'
       : 'text-[var(--text-tertiary)]';
 
     if (floated) {
@@ -650,10 +663,10 @@ export class SelectComponent implements OnDestroy, ControlValueAccessor {
   protected readonly triggerClasses = computed(() => {
     const base = 'backdrop-blur-sm';
     if (this.error()) {
-      return `${base} border-system-red bg-[var(--surface-primary)]`;
+      return `${base} border-[var(--input-error-border)] bg-[var(--surface-primary)]`;
     }
     if (this.isOpen()) {
-      return `${base} border-system-blue bg-[var(--surface-primary)]`;
+      return `${base} border-[var(--input-focus-border)] bg-[var(--surface-primary)]`;
     }
     return `${base} border-[var(--border-default)] bg-[var(--form-field-glass)] hover:border-[var(--border-opaque)]`;
   });

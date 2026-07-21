@@ -139,13 +139,13 @@ export interface BreadcrumbItem {
     }
 
     .breadcrumb-link:focus-visible {
-      color: var(--color-system-blue);
+      color: var(--color-primary);
       box-shadow: 0 0 0 3px var(--focus-ring);
     }
 
     .breadcrumb-link:active {
       transform: scale(0.94);
-      color: var(--color-system-blue);
+      color: var(--color-primary);
     }
 
     /* ── Active / current (last) crumb ──────────────────── */

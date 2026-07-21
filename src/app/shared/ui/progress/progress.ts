@@ -1,4 +1,4 @@
-import { Component, input, computed, inject, effect } from '@angular/core';
+import { Component, input, computed, inject, effect, untracked } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 
 @Component({
@@ -123,34 +123,38 @@ export class ProgressComponent {
   });
 
   protected readonly barClasses = computed(() => {
-    const colorMap = {
-      blue: 'bg-system-blue',
-      green: 'bg-system-green',
-      red: 'bg-system-red',
-      orange: 'bg-system-orange',
-      gradient: 'bg-gradient-to-r from-system-blue via-system-purple to-system-pink',
+    const colorMap: Record<string, string> = {
+      blue: 'bg-[var(--progress-bar-blue)]',
+      green: 'bg-[var(--progress-bar-green)]',
+      red: 'bg-[var(--progress-bar-red)]',
+      orange: 'bg-[var(--progress-bar-orange)]',
+      gradient: 'bg-gradient-to-r from-[var(--color-primary)] via-[var(--color-secondary)] to-[var(--color-system-pink)]',
     };
     return colorMap[this.color()];
   });
 
   constructor() {
-    // Announce progress to screen readers at milestone intervals
+    // Announce progress milestones to screen readers.
+    // untracked() prevents the announce/lastAnnouncedMilestone side-effects from
+    // feeding back as reactive dependencies and causing an infinite CD loop.
     effect(() => {
       if (!this.determinate()) return;
       const pct = this.percentage();
       const interval = this.announceEvery();
-      const milestone = Math.floor(pct / interval) * interval;
-      if (milestone !== this.lastAnnouncedMilestone && milestone > 0) {
-        this.lastAnnouncedMilestone = milestone;
-        const labelStr = this.label() ? `${this.label()}: ` : '';
-        this.liveAnnouncer.announce(`${labelStr}${pct}%`, 'polite');
-      }
-      // Announce completion
-      if (pct >= 100 && this.lastAnnouncedMilestone !== 100) {
-        this.lastAnnouncedMilestone = 100;
-        const labelStr = this.label() ? `${this.label()} ` : '';
-        this.liveAnnouncer.announce(`${labelStr}complete`, 'assertive');
-      }
+      untracked(() => {
+        const milestone = Math.floor(pct / interval) * interval;
+        if (milestone !== this.lastAnnouncedMilestone && milestone > 0) {
+          this.lastAnnouncedMilestone = milestone;
+          const labelStr = this.label() ? `${this.label()}: ` : '';
+          this.liveAnnouncer.announce(`${labelStr}${pct}%`, 'polite');
+        }
+        // Announce completion
+        if (pct >= 100 && this.lastAnnouncedMilestone !== 100) {
+          this.lastAnnouncedMilestone = 100;
+          const labelStr = this.label() ? `${this.label()} ` : '';
+          this.liveAnnouncer.announce(`${labelStr}complete`, 'assertive');
+        }
+      });
     });
   }
 
@@ -178,12 +182,12 @@ export class ProgressComponent {
 
   protected readonly ringBarClasses = computed(() => {
     const colorMap: Record<string, string> = {
-      blue: 'stroke-system-blue',
-      green: 'stroke-system-green',
-      red: 'stroke-system-red',
-      orange: 'stroke-system-orange',
-      gradient: 'stroke-system-blue',
+      blue: 'stroke-[var(--progress-ring-blue)]',
+      green: 'stroke-[var(--progress-ring-green)]',
+      red: 'stroke-[var(--progress-ring-red)]',
+      orange: 'stroke-[var(--progress-ring-orange)]',
+      gradient: 'stroke-[var(--progress-ring-blue)]',
     };
-    return colorMap[this.color()] || 'stroke-system-blue';
+    return colorMap[this.color()] || 'stroke-[var(--progress-ring-blue)]';
   });
 }

@@ -185,7 +185,7 @@ export class ContextMenuService {
             <!-- Label + badge -->
             <span class="flex-1 min-w-0 truncate">{{ item.label }}</span>
             @if (item.badge !== undefined) {
-              <span class="shrink-0 min-w-[18px] h-[18px] rounded-full bg-[var(--color-system-blue)] text-white text-[10px] font-semibold flex items-center justify-center px-1">
+              <span class="shrink-0 min-w-[18px] h-[18px] rounded-full bg-[var(--color-primary)] text-white text-[10px] font-semibold flex items-center justify-center px-1">
                 {{ item.badge }}
               </span>
             }
@@ -228,7 +228,7 @@ export class ContextMenuService {
       }
       .menu-item--focused.menu-item--destructive,
       .menu-item--destructive:focus-visible {
-        background: color-mix(in srgb, var(--color-system-red) 12%, transparent);
+        background: color-mix(in srgb, var(--color-error) 12%, transparent);
       }
       .submenu-positioner {
         position: absolute;
@@ -291,7 +291,7 @@ export class ContextMenuPanelComponent implements AfterViewInit {
   protected menuItemClasses(item: ContextMenuItem): Record<string, boolean> {
     return {
       'opacity-40 cursor-not-allowed pointer-events-none': !!item.disabled,
-      'text-[var(--color-system-red)] menu-item--destructive': !item.disabled && !!item.destructive,
+      'text-[var(--color-error)] menu-item--destructive': !item.disabled && !!item.destructive,
       'text-[var(--text-primary)]': !item.disabled && !item.destructive,
     };
   }

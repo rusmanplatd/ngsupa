@@ -7,10 +7,13 @@ import {
   signal,
   ElementRef,
   viewChildren,
-  afterRenderEffect,
+  afterNextRender,
   DestroyRef,
   inject,
+  Injector,
   OnInit,
+  effect,
+  untracked,
 } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -205,7 +208,7 @@ export type TabBarVariant = 'default' | 'floating' | 'minimal';
 
     /* Active */
     .tab-bar__tab--active {
-      color: var(--color-system-blue);
+      color: var(--tab-bar-active-color);
     }
 
     /* Tap bounce */
@@ -276,7 +279,7 @@ export type TabBarVariant = 'default' | 'floating' | 'minimal';
       line-height: 16px;
       text-align: center;
       color: #fff;
-      background: var(--color-system-red);
+      background: var(--color-error);
       border-radius: var(--radius-full);
       border: 2px solid var(--glass-bg-thick);
       box-sizing: content-box;
@@ -332,23 +335,32 @@ export class TabBarComponent implements OnInit {
   protected readonly indicatorLeft = signal(0);
   protected readonly indicatorWidth = signal(0);
   protected readonly isHidden = signal(false);
+  private readonly injector = inject(Injector);
 
   protected readonly variantClass = computed(() => {
     return `tab-bar--${this.variant()}`;
   });
 
   constructor() {
-    // Track indicator position via afterRenderEffect
-    afterRenderEffect(() => {
-      const btns = this.tabBtns();
+    // Update indicator position when active tab changes.
+    // effect() tracks signals; afterNextRender() defers DOM reads until after
+    // paint; untracked() writes prevent a reactive feedback loop (NG0103).
+    effect(() => {
       const active = this.activeTab();
       const allTabs = this.tabs();
-      const idx = allTabs.findIndex(t => t.id === active);
-      if (idx >= 0 && btns[idx]) {
-        const el = btns[idx].nativeElement;
-        this.indicatorLeft.set(el.offsetLeft);
-        this.indicatorWidth.set(el.offsetWidth);
-      }
+      afterNextRender(() => {
+        const btns = untracked(() => this.tabBtns());
+        const idx = allTabs.findIndex(t => t.id === active);
+        if (idx >= 0 && btns[idx]) {
+          const el = btns[idx].nativeElement;
+          const newLeft = el.offsetLeft;
+          const newWidth = el.offsetWidth;
+          untracked(() => {
+            if (this.indicatorLeft() !== newLeft) this.indicatorLeft.set(newLeft);
+            if (this.indicatorWidth() !== newWidth) this.indicatorWidth.set(newWidth);
+          });
+        }
+      }, { injector: this.injector });
     });
   }
 

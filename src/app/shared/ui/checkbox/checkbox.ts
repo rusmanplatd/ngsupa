@@ -121,8 +121,8 @@ export class CheckboxComponent implements ControlValueAccessor {
     const on = this.internalChecked() || this.indeterminate();
     const base = 'w-[22px] h-[22px] rounded-md';
     return on
-      ? `${base} bg-system-blue border-2 border-system-blue`
-      : `${base} border-2 border-[var(--border-opaque)] bg-transparent hover:border-system-blue hover:bg-[var(--interactive-tint)]`;
+      ? `${base} bg-[var(--checkbox-checked-bg)] border-2 border-[var(--checkbox-checked-border)]`
+      : `${base} border-2 border-[var(--border-opaque)] bg-transparent hover:border-[var(--checkbox-unchecked-border-hover)] hover:bg-[var(--checkbox-unchecked-bg-hover)]`;
   });
 
   protected readonly boxShadow = computed(() => {

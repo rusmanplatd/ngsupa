@@ -215,15 +215,24 @@ export interface TreeContextMenuEvent {
                 class="tree-toggle"
                 [class.tree-toggle--expanded]="cdkTree.isExpanded(node)"
                 [class.tree-toggle--leaf]="!hasChildren(node)"
+                [class.tree-toggle--loading]="loadingNodeIds().has(node.id)"
                 cdkTreeNodeToggle
                 [attr.aria-label]="cdkTree.isExpanded(node) ? 'Collapse ' + node.label : 'Expand ' + node.label"
                 [tabIndex]="-1"
+                (click)="onToggleClick(node)"
               >
-                <svg
-                  lucideIcon="chevron-right"
-                  [size]="14"
-                  class="tree-toggle-icon"
-                />
+                @if (loadingNodeIds().has(node.id)) {
+                  <!-- Loading spinner -->
+                  <svg class="tree-toggle-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                  </svg>
+                } @else {
+                  <svg
+                    lucideIcon="chevron-right"
+                    [size]="14"
+                    class="tree-toggle-icon"
+                  />
+                }
               </button>
 
               <!-- Checkbox -->
@@ -382,6 +391,12 @@ export class TreeComponent implements OnInit {
   readonly searchable = input(false);
   readonly searchPlaceholder = input('Search…');
   readonly selectionMode = input<'none' | 'single' | 'multiple'>('single');
+  /**
+   * Optional async children loader. When provided, nodes without static children
+   * will call this function on first expand to lazily load their children.
+   * The node is treated as expandable (shows toggle) until it has been loaded.
+   */
+  readonly loadChildrenFn = input<((node: TreeNode) => Promise<TreeNode[]>) | null>(null);
 
   // ── Outputs ─────────────────────────────────────────────────
   readonly nodeClick = output<TreeNode>();
@@ -402,6 +417,11 @@ export class TreeComponent implements OnInit {
   protected readonly liveAnnouncement = signal('');
   protected readonly focusedNodeId = signal<string | null>(null);
 
+  /** IDs of nodes currently loading async children */
+  protected readonly loadingNodeIds = signal<Set<string>>(new Set());
+  /** Map of node id -> lazily loaded children */
+  private readonly asyncChildrenMap = signal<Map<string, TreeNode[]>>(new Map());
+
   // IDs to force-expand for search
   private readonly forceExpandIds = signal<Set<string>>(new Set());
 
@@ -410,8 +430,12 @@ export class TreeComponent implements OnInit {
   private typeaheadTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── CDK childrenAccessor ────────────────────────────────────
-  readonly childrenAccessor = (node: TreeNode): TreeNode[] =>
-    node.children ?? [];
+  /** Returns children for a node, including async-loaded ones. */
+  readonly childrenAccessor = (node: TreeNode): TreeNode[] => {
+    const asyncChildren = this.asyncChildrenMap().get(node.id);
+    if (asyncChildren !== undefined) return asyncChildren;
+    return node.children ?? [];
+  };
 
   readonly trackById = (_index: number, node: TreeNode): string => node.id;
 
@@ -716,7 +740,57 @@ export class TreeComponent implements OnInit {
   // ── Node Helpers ────────────────────────────────────────────
 
   protected hasChildren(node: TreeNode): boolean {
+    const asyncChildren = this.asyncChildrenMap().get(node.id);
+    if (asyncChildren !== undefined) return asyncChildren.length > 0;
+    // If a loadChildrenFn is provided and node has no static children, treat it as expandable
+    if (this.loadChildrenFn() && !node.children) return true;
     return !!node.children && node.children.length > 0;
+  }
+
+  /**
+   * Called when the toggle button is clicked. If the node is being expanded
+   * for the first time and a loadChildrenFn is provided, trigger async loading.
+   * The cdkTreeNodeToggle directive handles the actual expand/collapse.
+   */
+  protected onToggleClick(node: TreeNode): void {
+    const fn = this.loadChildrenFn();
+    if (!fn) return;
+    // Only load if: not already loaded, not currently loading, and node has no static children
+    if (
+      !this.asyncChildrenMap().has(node.id) &&
+      !this.loadingNodeIds().has(node.id) &&
+      !node.children
+    ) {
+      this.loadingNodeIds.update((ids) => {
+        const next = new Set(ids);
+        next.add(node.id);
+        return next;
+      });
+      this.liveAnnouncement.set(`Loading children for ${node.label}`);
+
+      fn(node).then((children) => {
+        this.asyncChildrenMap.update((map) => {
+          const next = new Map(map);
+          next.set(node.id, children);
+          return next;
+        });
+        this.loadingNodeIds.update((ids) => {
+          const next = new Set(ids);
+          next.delete(node.id);
+          return next;
+        });
+        this.liveAnnouncement.set(
+          `${node.label} loaded ${children.length} ${children.length === 1 ? 'item' : 'items'}`
+        );
+      }).catch(() => {
+        this.loadingNodeIds.update((ids) => {
+          const next = new Set(ids);
+          next.delete(node.id);
+          return next;
+        });
+        this.liveAnnouncement.set(`Failed to load children for ${node.label}`);
+      });
+    }
   }
 
   protected getNodeIcon(node: TreeNode): string {

@@ -173,7 +173,7 @@ export interface TimelineEvent {
       width: 10px;
       height: 10px;
       border-radius: var(--radius-full);
-      background: var(--color-system-blue);
+      background: var(--timeline-default-bg);
       animation: timeline-pulse 2s var(--ease-in-out) infinite;
     }
 
@@ -242,7 +242,7 @@ export interface TimelineEvent {
 
     .timeline-item__title--active {
       font-weight: 600;
-      color: var(--color-system-blue);
+      color: var(--timeline-default-color);
     }
 
     :host(.timeline-item--lg) .timeline-item__title {
@@ -303,33 +303,33 @@ export interface TimelineEvent {
 
     .node--active {
       background: oklch(59% 0.24 264 / 0.12);
-      color: var(--color-system-blue);
+      color: var(--timeline-default-color);
       box-shadow: 0 0 0 3px var(--surface-primary), 0 0 0 5px oklch(59% 0.24 264 / 0.15);
     }
 
     .node--completed {
-      background: var(--color-system-green);
+      background: var(--timeline-success-bg);
       color: #fff;
     }
 
     .node--success {
       background: oklch(60% 0.19 145 / 0.15);
-      color: var(--color-system-green);
+      color: var(--timeline-success-color);
     }
 
     .node--warning {
       background: oklch(70% 0.18 55 / 0.15);
-      color: var(--color-system-orange);
+      color: var(--timeline-warning-color);
     }
 
     .node--error {
       background: oklch(59% 0.23 27 / 0.15);
-      color: var(--color-system-red);
+      color: var(--timeline-error-color);
     }
 
     .node--info {
       background: oklch(62% 0.12 200 / 0.15);
-      color: var(--color-system-teal);
+      color: var(--timeline-info-color);
     }
 
     .node--neutral {
@@ -343,7 +343,7 @@ export interface TimelineEvent {
     }
 
     .connector--completed {
-      background: var(--color-system-green);
+      background: var(--timeline-success-bg);
       opacity: 0.4;
     }
 

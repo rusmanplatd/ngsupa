@@ -65,7 +65,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
       <svg
         viewBox="0 0 16 16"
         fill="none"
-        class="h-4 w-4 text-system-blue"
+        class="h-4 w-4 text-[var(--color-primary)]"
         stroke="currentColor"
         stroke-width="2.5"
         stroke-linecap="round"
@@ -138,7 +138,7 @@ export class ListboxOptionComponent {
 
   protected readonly iconContainerClasses = computed(() => {
     if (this.selected()) {
-      return 'bg-system-blue-light text-system-blue';
+      return 'bg-[var(--color-primary-container)] text-[var(--color-primary)]';
     }
     return 'bg-[var(--fill-secondary)] text-[var(--text-secondary)] group-hover:bg-[var(--fill-tertiary)]';
   });
@@ -198,7 +198,7 @@ export class ListboxOptionComponent {
   `,
   styles: `
     :host:focus-within {
-      border-color: var(--color-system-blue);
+      border-color: var(--color-primary);
       box-shadow: var(--form-control-glow) !important;
     }
 

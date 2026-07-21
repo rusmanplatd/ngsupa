@@ -56,6 +56,7 @@ import {
   DataTableComponent,
   DataTableCellDirective,
   type DataTableColumnDef,
+  type ColumnFilter,
 } from '../../shared/ui/data-table/data-table';
 import { FileUploadComponent, FileEntry, UploadProgress } from '../../shared/ui/file-upload/file-upload';
 import { BreadcrumbComponent, type BreadcrumbItem } from '../../shared/ui/breadcrumb/breadcrumb';
@@ -582,6 +583,22 @@ import { Observable } from 'rxjs';
               [searchable]="true"
               [clearable]="true"
               (valueChange)="selectedNotification.set($event)"
+            />
+          </div>
+
+          <!-- Async Infinite Scroll -->
+          <div class="space-y-4">
+            <h3 class="subsection-label">Async Infinite Scroll</h3>
+            <p class="text-sm text-[var(--text-tertiary)] -mt-2 mb-1">Scroll to the bottom of the list to load more options automatically.</p>
+            <app-dropdown
+              label="Search Users (Async)"
+              [searchable]="true"
+              [clearable]="true"
+              placeholder="Type to search…"
+              [value]="ddAsyncValue()"
+              [loadMoreFn]="ddLoadMoreFn"
+              (valueChange)="ddAsyncValue.set($event)"
+              hint="Simulated paginated API — 8 items per page"
             />
           </div>
 
@@ -1723,14 +1740,28 @@ import { Observable } from 'rxjs';
             <h3 class="subsection-label">Accordion</h3>
             <div class="grid gap-6 md:grid-cols-2">
               <div>
-                <p class="text-xs text-[var(--text-tertiary)] mb-2">Default</p>
+                <p class="text-xs text-[var(--text-tertiary)] mb-2">Default — with badge &amp; subtitle</p>
                 <app-card variant="outlined" padding="none">
-                  <app-accordion [items]="accordionItems" />
+                  <app-accordion
+                    [items]="accordionItems"
+                    [defaultOpenIds]="['what']"
+                    (openChange)="onAccordionOpenChange($event)"
+                  />
                 </app-card>
               </div>
               <div>
                 <p class="text-xs text-[var(--text-tertiary)] mb-2">Separated + Multiple</p>
                 <app-accordion [items]="accordionItems" variant="separated" [multiple]="true" />
+              </div>
+              <div>
+                <p class="text-xs text-[var(--text-tertiary)] mb-2">Inset (iOS grouped style)</p>
+                <app-accordion [items]="accordionItems" variant="inset" />
+              </div>
+              <div>
+                <p class="text-xs text-[var(--text-tertiary)] mb-2">Size Small — flush separators</p>
+                <app-card variant="outlined" padding="none">
+                  <app-accordion [items]="accordionItems" size="sm" [flush]="true" />
+                </app-card>
               </div>
             </div>
           </div>
@@ -1968,6 +1999,15 @@ import { Observable } from 'rxjs';
                 </div>
               }
             </app-carousel>
+          </div>
+
+          <!-- Touch/Swipe Gestures note -->
+          <div class="rounded-xl border border-[var(--border-default)] bg-[var(--fill-tertiary)] px-4 py-3 flex items-start gap-3">
+            <svg lucideIcon="smartphone" [size]="18" class="text-[var(--color-primary)] shrink-0 mt-0.5" />
+            <div>
+              <p class="text-sm font-semibold text-[var(--text-primary)]">Touch / Swipe Gestures</p>
+              <p class="text-xs text-[var(--text-secondary)] mt-0.5">On mobile or touch devices, swipe left or right on any carousel above to navigate slides. A swipe of ≥50px or velocity ≥0.3px/ms triggers navigation — short taps are ignored so they don't conflict with scroll.</p>
+            </div>
           </div>
 
         </div>
@@ -2357,6 +2397,41 @@ import { Observable } from 'rxjs';
             />
           </div>
 
+          <!-- Advanced Column Filtering -->
+          <div>
+            <h3 class="subsection-label">Advanced Column Filtering</h3>
+            <p class="text-sm text-[var(--text-tertiary)] -mt-1 mb-3">Click the filter icon (🔍) that appears when you hover a filterable column header. Choose an operator and type a value, then press Apply or Enter.</p>
+            <app-data-table
+              [columns]="dtFilterableColumns"
+              [data]="dtProducts"
+              [trackByFn]="dtTrackById"
+              [searchable]="true"
+              searchPlaceholder="Global search…"
+              [pageSize]="5"
+              (filterChange)="onDtFilterChange($event)"
+            >
+              <ng-template appDataTableCell="price" let-row>
+                <span class="font-semibold tabular-nums">{{ row.price }}</span>
+              </ng-template>
+              <ng-template appDataTableCell="stock" let-row>
+                <app-badge
+                  [variant]="row.stock > 50 ? 'success' : row.stock > 10 ? 'warning' : 'error'"
+                  [subtle]="true"
+                >{{ row.stock }} units</app-badge>
+              </ng-template>
+            </app-data-table>
+            @if (dtActiveFilters().length > 0) {
+              <div class="mt-2 flex items-center gap-2 flex-wrap">
+                <span class="text-xs text-[var(--text-tertiary)]">Active filters:</span>
+                @for (f of dtActiveFilters(); track f.column) {
+                  <span class="inline-flex items-center gap-1 rounded-full bg-[var(--interactive-tint)] px-2.5 py-1 text-xs font-medium text-[var(--color-primary)]">
+                    {{ f.column }}: {{ f.operator }} "{{ f.value }}"
+                  </span>
+                }
+              </div>
+            }
+          </div>
+
         </div>
       </section>
 
@@ -2446,6 +2521,40 @@ import { Observable } from 'rxjs';
               label="Upload unavailable"
               hint="Feature temporarily disabled"
               [disabled]="true"
+            />
+          </div>
+
+          <!-- Image Crop -->
+          <div>
+            <h3 class="subsection-label">Image Upload with Crop</h3>
+            <p class="text-sm text-[var(--text-tertiary)] -mt-1 mb-3">Upload an image, then hover the thumbnail and click the ✂️ Crop button to open the interactive crop editor.</p>
+            <app-file-upload
+              label="Upload & Crop Images"
+              hint="Hover a thumbnail → click ✂️ to crop. Supports rotate ±90° and drag-to-resize crop region."
+              accept="image/*"
+              [multiple]="true"
+              [maxFileSize]="10485760"
+              [maxFiles]="4"
+              [enableImageCrop]="true"
+              (filesChange)="onUploadFilesChange($event)"
+              (imageCropped)="onImageCropped($event)"
+            />
+          </div>
+
+          <!-- Chunked Upload -->
+          <div>
+            <h3 class="subsection-label">Chunked Upload (Simulated) with Pause / Resume</h3>
+            <p class="text-sm text-[var(--text-tertiary)] -mt-1 mb-3">Files are split into 512 KB chunks. Progress advances chunk by chunk. Use the ⏸ Pause button during upload and ▶ Resume to continue.</p>
+            <app-file-upload
+              label="Chunked Upload"
+              hint="Each file is split into chunks and uploaded sequentially. Pause/Resume mid-upload."
+              accept="*"
+              [multiple]="true"
+              [maxFileSize]="52428800"
+              [maxFiles]="3"
+              [chunkSize]="524288"
+              [chunkUploadFn]="mockChunkUploadFn"
+              (filesChange)="onUploadFilesChange($event)"
             />
           </div>
 
@@ -2798,6 +2907,28 @@ export class ShowcaseComponent {
     this.toastService.error(`${error.file.name}: ${error.message}`);
   }
 
+  protected onImageCropped(event: { originalEntry: FileEntry; croppedEntry: FileEntry }): void {
+    this.toastService.success(`Cropped ${event.originalEntry.file.name}`);
+  }
+
+  protected readonly mockChunkUploadFn = (chunk: Blob, index: number, total: number, fileId: string): Observable<number> => {
+    return new Observable<number>((subscriber) => {
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.floor(Math.random() * 20) + 10;
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(interval);
+          subscriber.next(100);
+          subscriber.complete();
+        } else {
+          subscriber.next(progress);
+        }
+      }, 200);
+      return () => clearInterval(interval);
+    });
+  };
+
   protected readonly mockUploadFn = (file: File): Observable<UploadProgress> => {
     return new Observable<UploadProgress>((subscriber) => {
       let progress = 0;
@@ -2994,6 +3125,25 @@ export class ShowcaseComponent {
   protected readonly selectedPermissions = signal<string[]>([]);
   protected readonly selectedFruits = signal<string[]>([]);
 
+  protected readonly ddAsyncValue = signal('');
+  protected readonly ddLoadMoreFn = async (query: string, page: number): Promise<DropdownOption[]> => {
+    const pageSize = 8;
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    const allUsers = Array.from({ length: 50 }).map((_, i) => ({
+      value: `user_${i + 1}`,
+      label: `User ${i + 1}`,
+      icon: 'user'
+    }));
+
+    const filtered = query
+      ? allUsers.filter(u => u.label.toLowerCase().includes(query.toLowerCase()))
+      : allUsers;
+
+    const start = page * pageSize;
+    return filtered.slice(start, start + pageSize);
+  };
+
   protected readonly notificationOptions: DropdownOption[] = [
     { value: 'email', label: 'Email', icon: 'mail', description: 'Send via email' },
     { value: 'sms', label: 'SMS', icon: 'smartphone', description: 'Send via text message' },
@@ -3170,6 +3320,19 @@ export class ShowcaseComponent {
     { id: 'p10', product: 'Laptop Stand', category: 'Accessories', price: '$59.99', stock: 43, sku: 'LS-011' },
   ];
 
+  protected readonly dtFilterableColumns: DataTableColumnDef[] = [
+    { key: 'product', header: 'Product', sortable: true, filterable: true },
+    { key: 'category', header: 'Category', sortable: true, filterable: true },
+    { key: 'price', header: 'Price', templateKey: 'price', sortable: true, align: 'end', width: '110px' },
+    { key: 'stock', header: 'Stock', templateKey: 'stock', align: 'center', width: '140px', filterable: true },
+    { key: 'sku', header: 'SKU', width: '120px', filterable: true },
+  ];
+
+  protected readonly dtActiveFilters = signal<ColumnFilter[]>([]);
+  protected onDtFilterChange(filters: ColumnFilter[]): void {
+    this.dtActiveFilters.set(filters);
+  }
+
   protected onDtSelectionChange(rows: Record<string, unknown>[]): void {
     this.toastService.info(`${rows.length} row${rows.length !== 1 ? 's' : ''} selected`);
   }
@@ -3286,22 +3449,31 @@ export class ShowcaseComponent {
     {
       id: 'what',
       title: 'What is this design system?',
+      subtitle: 'Apple HIG-inspired Angular library',
       content: 'A comprehensive Angular component library following Apple Human Interface Guidelines (HIG), featuring glassmorphism, spring animations, and semantic design tokens.',
       icon: 'info',
+      badge: 'New',
     },
     {
       id: 'tech',
       title: 'Technology stack',
+      subtitle: 'Angular 22+, Tailwind v4, Signals',
       content: 'Built with Angular 22+, Tailwind CSS v4, standalone components, and signal-based state management. All components follow WCAG AA accessibility standards.',
       icon: 'layers',
+      badge: 3,
     },
     {
       id: 'theme',
       title: 'Theming support',
+      subtitle: 'Light, dark & system preference',
       content: 'Full light and dark mode support using CSS light-dark() function and oklch color space. Theme preference is persisted in localStorage and respects system settings.',
       icon: 'sun',
     },
   ];
+
+  protected onAccordionOpenChange(openIds: string[]): void {
+    // no-op: demonstrates openChange output wiring
+  }
 
   protected readonly systemColors = [
     { name: 'Blue', token: 'system-blue', value: 'oklch(59% 0.24 264)' },
@@ -3318,32 +3490,32 @@ export class ShowcaseComponent {
 
   // --- Breadcrumb data ---
   protected readonly breadcrumbBasic: BreadcrumbItem[] = [
-    { label: 'Home',     path: '/' },
-    { label: 'Library',  path: '/library' },
-    { label: 'Albums',   path: '/library/albums' },
+    { label: 'Home', path: '/' },
+    { label: 'Library', path: '/library' },
+    { label: 'Albums', path: '/library/albums' },
     { label: 'Favorites' },
   ];
 
   protected readonly breadcrumbIcons: BreadcrumbItem[] = [
-    { label: 'Home',     path: '/',                icon: 'house' },
-    { label: 'Settings', path: '/settings',         icon: 'settings' },
-    { label: 'Privacy',  path: '/settings/privacy', icon: 'shield' },
+    { label: 'Home', path: '/', icon: 'house' },
+    { label: 'Settings', path: '/settings', icon: 'settings' },
+    { label: 'Privacy', path: '/settings/privacy', icon: 'shield' },
     { label: 'Location' },
   ];
 
   protected readonly breadcrumbDeep: BreadcrumbItem[] = [
-    { label: 'Home',        path: '/' },
-    { label: 'Products',    path: '/products' },
+    { label: 'Home', path: '/' },
+    { label: 'Products', path: '/products' },
     { label: 'Electronics', path: '/products/electronics' },
-    { label: 'Computers',   path: '/products/electronics/computers' },
-    { label: 'Laptops',     path: '/products/electronics/computers/laptops' },
+    { label: 'Computers', path: '/products/electronics/computers' },
+    { label: 'Laptops', path: '/products/electronics/computers/laptops' },
     { label: 'MacBook Pro' },
   ];
 
   protected readonly breadcrumbDisabled: BreadcrumbItem[] = [
-    { label: 'Home',        path: '/' },
-    { label: 'Restricted',  path: '/restricted', disabled: true },
-    { label: 'Reports',     path: '/restricted/reports' },
+    { label: 'Home', path: '/' },
+    { label: 'Restricted', path: '/restricted', disabled: true },
+    { label: 'Reports', path: '/restricted/reports' },
     { label: 'Annual 2025' },
   ];
 
@@ -3572,12 +3744,12 @@ export class ShowcaseComponent {
   protected async onContextMenu(event: MouseEvent): Promise<void> {
     event.preventDefault();
     const items: ContextMenuItem[] = [
-      { id: 'cut',   label: 'Cut',   icon: 'scissors', shortcut: '⌘X' },
-      { id: 'copy',  label: 'Copy',  icon: 'copy',     shortcut: '⌘C' },
+      { id: 'cut', label: 'Cut', icon: 'scissors', shortcut: '⌘X' },
+      { id: 'copy', label: 'Copy', icon: 'copy', shortcut: '⌘C' },
       { id: 'paste', label: 'Paste', icon: 'clipboard', shortcut: '⌘V', disabled: true },
       { id: 'sep-edit', label: 'Format', separator: true },
-      { id: 'bold',      label: 'Bold',      icon: 'bold',      shortcut: '⌘B' },
-      { id: 'italic',    label: 'Italic',    icon: 'italic',    shortcut: '⌘I' },
+      { id: 'bold', label: 'Bold', icon: 'bold', shortcut: '⌘B' },
+      { id: 'italic', label: 'Italic', icon: 'italic', shortcut: '⌘I' },
       { id: 'underline', label: 'Underline', icon: 'underline', shortcut: '⌘U' },
       {
         id: 'share',
@@ -3585,7 +3757,7 @@ export class ShowcaseComponent {
         icon: 'share-2',
         badge: 3,
         children: [
-          { id: 'share-link',  label: 'Copy Link',      icon: 'link' },
+          { id: 'share-link', label: 'Copy Link', icon: 'link' },
           { id: 'share-email', label: 'Send via Email', icon: 'mail' },
           { id: 'share-slack', label: 'Share to Slack', icon: 'message-square' },
         ],
@@ -3607,12 +3779,12 @@ export class ShowcaseComponent {
     const btn = event.currentTarget as HTMLElement;
     const rect = btn.getBoundingClientRect();
     const items: ContextMenuItem[] = [
-      { id: 'cut',   label: 'Cut',   icon: 'scissors', shortcut: '⌘X' },
-      { id: 'copy',  label: 'Copy',  icon: 'copy',     shortcut: '⌘C' },
+      { id: 'cut', label: 'Cut', icon: 'scissors', shortcut: '⌘X' },
+      { id: 'copy', label: 'Copy', icon: 'copy', shortcut: '⌘C' },
       { id: 'paste', label: 'Paste', icon: 'clipboard', shortcut: '⌘V', disabled: true },
       { id: 'sep-edit', label: 'Format', separator: true },
-      { id: 'bold',      label: 'Bold',      icon: 'bold',      shortcut: '⌘B' },
-      { id: 'italic',    label: 'Italic',    icon: 'italic',    shortcut: '⌘I' },
+      { id: 'bold', label: 'Bold', icon: 'bold', shortcut: '⌘B' },
+      { id: 'italic', label: 'Italic', icon: 'italic', shortcut: '⌘I' },
       { id: 'underline', label: 'Underline', icon: 'underline', shortcut: '⌘U' },
       {
         id: 'share',
@@ -3620,7 +3792,7 @@ export class ShowcaseComponent {
         icon: 'share-2',
         badge: 3,
         children: [
-          { id: 'share-link',  label: 'Copy Link',      icon: 'link' },
+          { id: 'share-link', label: 'Copy Link', icon: 'link' },
           { id: 'share-email', label: 'Send via Email', icon: 'mail' },
           { id: 'share-slack', label: 'Share to Slack', icon: 'message-square' },
         ],

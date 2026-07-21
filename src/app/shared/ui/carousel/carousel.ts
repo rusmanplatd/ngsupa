@@ -5,13 +5,19 @@ import {
   signal,
   computed,
   contentChildren,
+  contentChild,
   viewChild,
   ElementRef,
-  afterRenderEffect,
+  afterNextRender,
   Directive,
   DestroyRef,
   inject,
+  Injector,
+  effect,
+  untracked,
+  TemplateRef,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 
 @Directive({
@@ -24,11 +30,19 @@ import { LiveAnnouncer } from '@angular/cdk/a11y';
 })
 export class CarouselSlideDirective {}
 
+/** Optional thumbnail template directive. Apply to an ng-template inside app-carousel. */
+@Directive({
+  selector: 'ng-template[appCarouselThumbnail]',
+})
+export class CarouselThumbnailDirective {
+  readonly templateRef = inject(TemplateRef);
+}
+
 export type CarouselVariant = 'default' | 'card' | 'fullbleed';
 
 @Component({
   selector: 'app-carousel',
-  imports: [],
+  imports: [NgTemplateOutlet],
   host: {
     class: 'block',
     '[attr.aria-roledescription]': '"carousel"',
@@ -40,16 +54,42 @@ export type CarouselVariant = 'default' | 'card' | 'fullbleed';
     '(mouseleave)': 'onPointerLeave()',
     '(focus)': 'onPointerEnter()',
     '(blur)': 'onPointerLeave()',
+    '(touchstart)': 'onTouchStart($event)',
+    '(touchmove)': 'onTouchMove($event)',
+    '(touchend)': 'onTouchEnd($event)',
   },
   template: `
-    <!-- Header row: title + nav arrows -->
-    @if (title() || showArrows()) {
+    <!-- Header row: title + nav arrows + play/pause -->
+    @if (title() || showArrows() || (autoplay() > 0 && showPlayPause())) {
       <div class="carousel-header">
         @if (title()) {
           <h3 class="carousel-title">{{ title() }}</h3>
         }
-        @if (showArrows()) {
-          <div class="carousel-nav" role="group" aria-label="Slide navigation">
+        <div class="carousel-nav" role="group" aria-label="Carousel controls">
+          @if (autoplay() > 0 && showPlayPause()) {
+            <!-- WCAG 2.1 SC 2.2.2: Visible pause/play button for moving content -->
+            <button
+              class="carousel-arrow carousel-play-pause"
+              (click)="togglePause()"
+              [attr.aria-label]="isPaused() ? 'Resume autoplay' : 'Pause autoplay'"
+              [attr.aria-pressed]="isPaused()"
+              type="button"
+            >
+              @if (isPaused()) {
+                <!-- Play icon -->
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+              } @else {
+                <!-- Pause icon -->
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="4" width="4" height="16" rx="1"/>
+                  <rect x="14" y="4" width="4" height="16" rx="1"/>
+                </svg>
+              }
+            </button>
+          }
+          @if (showArrows()) {
             <button
               class="carousel-arrow"
               [class.carousel-arrow--disabled]="currentIndex() === 0"
@@ -74,8 +114,8 @@ export type CarouselVariant = 'default' | 'card' | 'fullbleed';
                 <polyline points="9 18 15 12 9 6"></polyline>
               </svg>
             </button>
-          </div>
-        }
+          }
+        </div>
       </div>
     }
 
@@ -93,7 +133,7 @@ export type CarouselVariant = 'default' | 'card' | 'fullbleed';
     </div>
 
     <!-- Pagination dots -->
-    @if (showDots() && slideCount() > 1) {
+    @if (showDots() && slideCount() > 1 && !showThumbnails()) {
       <div class="carousel-dots" role="tablist" aria-label="Slide pagination">
         @for (dot of dotsArray(); track $index) {
           <button
@@ -107,6 +147,46 @@ export type CarouselVariant = 'default' | 'card' | 'fullbleed';
           ></button>
         }
       </div>
+    }
+
+    <!-- Thumbnail strip navigation -->
+    @if (showThumbnails() && slideCount() > 1) {
+      @if (thumbnailTemplate()) {
+        <!-- Custom thumbnail templates -->
+        <div class="carousel-thumbnails" role="tablist" aria-label="Slide thumbnails">
+          @for (slide of slides(); track $index) {
+            <button
+              class="carousel-thumbnail"
+              [class.carousel-thumbnail--active]="$index === currentIndex()"
+              (click)="goTo($index)"
+              [attr.aria-label]="'Go to slide ' + ($index + 1)"
+              [attr.aria-selected]="$index === currentIndex()"
+              role="tab"
+              type="button"
+            >
+              <ng-container
+                [ngTemplateOutlet]="thumbnailTemplate()!.templateRef"
+                [ngTemplateOutletContext]="{ $implicit: $index, active: $index === currentIndex() }"
+              />
+            </button>
+          }
+        </div>
+      } @else {
+        <!-- Default thumbnail dots (larger) as fallback -->
+        <div class="carousel-thumbnails carousel-thumbnails--default" role="tablist" aria-label="Slide thumbnails">
+          @for (dot of dotsArray(); track $index) {
+            <button
+              class="carousel-thumbnail carousel-thumbnail--dot"
+              [class.carousel-thumbnail--active]="$index === currentIndex()"
+              (click)="goTo($index)"
+              [attr.aria-label]="'Go to slide ' + ($index + 1)"
+              [attr.aria-selected]="$index === currentIndex()"
+              role="tab"
+              type="button"
+            ></button>
+          }
+        </div>
+      }
     }
   `,
   styles: `
@@ -241,12 +321,90 @@ export type CarouselVariant = 'default' | 'card' | 'fullbleed';
 
     .carousel-dot--active {
       width: 24px;
-      background: var(--color-system-blue);
+      background: var(--color-primary);
     }
 
     .carousel-dot:focus-visible {
       outline: 2px solid var(--focus-ring);
       outline-offset: 2px;
+    }
+
+    /* ── Play/Pause Button ───────────────────────────────── */
+    .carousel-play-pause {
+      color: var(--color-primary);
+      background: var(--interactive-tint);
+    }
+
+    .carousel-play-pause:hover {
+      background: var(--interactive-tint-hover);
+      transform: scale(1.08);
+    }
+
+    .carousel-play-pause[aria-pressed="true"] {
+      background: var(--fill-secondary);
+      color: var(--text-secondary);
+    }
+
+    /* ── Thumbnail Strip ──────────────────────────────────── */
+    .carousel-thumbnails {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 4px 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .carousel-thumbnails::-webkit-scrollbar {
+      display: none;
+    }
+
+    .carousel-thumbnail {
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      transition:
+        opacity var(--duration-fast) var(--ease-default),
+        transform var(--duration-fast) var(--ease-spring),
+        box-shadow var(--duration-fast) var(--ease-default);
+      opacity: 0.55;
+      flex-shrink: 0;
+    }
+
+    .carousel-thumbnail:hover {
+      opacity: 0.85;
+      transform: scale(1.05);
+    }
+
+    .carousel-thumbnail--active {
+      opacity: 1;
+      box-shadow: 0 0 0 2px var(--color-primary);
+      transform: scale(1.08);
+    }
+
+    .carousel-thumbnail:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    /* Default dot-style thumbnails */
+    .carousel-thumbnail--dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 9999px;
+      background: var(--text-quaternary);
+      transition:
+        background var(--duration-normal) var(--ease-default),
+        transform var(--duration-fast) var(--ease-spring),
+        box-shadow var(--duration-fast) var(--ease-default);
+    }
+
+    .carousel-thumbnail--dot.carousel-thumbnail--active {
+      background: var(--color-primary);
     }
 
     /* ── Host focus ring ─────────────────────────────────── */
@@ -279,12 +437,28 @@ export class CarouselComponent {
   /** Autoplay interval in ms (0 = off). */
   readonly autoplay = input(0);
 
+  /**
+   * Show a visible Play/Pause toggle button when autoplay is enabled.
+   * Required for WCAG 2.1 SC 2.2.2 (Pause, Stop, Hide).
+   * Defaults to true when autoplay > 0.
+   */
+  readonly showPlayPause = input(true);
+
+  /**
+   * Show a thumbnail strip below the track instead of dots.
+   * Provide thumbnail templates via <ng-template appCarouselThumbnail>.
+   */
+  readonly showThumbnails = input(false);
+
   /** Emits current slide index on change. */
   readonly slideChange = output<number>();
 
   protected readonly currentIndex = signal(0);
+  /** Whether autoplay is currently paused by the user. */
+  protected readonly isPaused = signal(false);
 
   protected readonly slides = contentChildren(CarouselSlideDirective, { read: ElementRef });
+  protected readonly thumbnailTemplate = contentChild(CarouselThumbnailDirective);
   private readonly trackRef = viewChild.required<ElementRef<HTMLElement>>('trackEl');
   private readonly destroyRef = inject(DestroyRef);
   private readonly liveAnnouncer = inject(LiveAnnouncer);
@@ -295,20 +469,43 @@ export class CarouselComponent {
 
   private autoplayTimer: ReturnType<typeof setInterval> | null = null;
   private scrollTimeout: ReturnType<typeof setTimeout> | null = null;
-  /** Tracks whether focus or hover is active — pauses autoplay while true. */
-  private paused = false;
+  /** Tracks whether hover/focus pause is active. */
+  private hoverPaused = false;
+
+  // Touch/swipe gesture tracking
+  private touchStartX = 0;
+  private touchCurrentX = 0;
+  private touchStartTime = 0;
+  /** Minimum swipe distance in px to trigger navigation */
+  private readonly SWIPE_THRESHOLD = 50;
+  /** Minimum velocity (px/ms) to trigger navigation even on short swipes */
+  private readonly SWIPE_VELOCITY = 0.3;
 
   constructor() {
-    // Set up autoplay after render
-    afterRenderEffect(() => {
+    // Set up autoplay whenever the interval input changes.
+    // effect() runs as a side-effect (not in render phase), so it avoids NG0103.
+    // untracked() inside the setInterval callback prevents currentIndex/maxIndex
+    // reads from re-triggering the effect on every tick.
+    effect(() => {
       const interval = this.autoplay();
-      this.clearAutoplay();
-      if (interval > 0 && !this.paused) {
-        this.autoplayTimer = setInterval(() => {
-          const nextIdx = this.currentIndex() < this.maxIndex() ? this.currentIndex() + 1 : 0;
-          this.goTo(nextIdx);
-        }, interval);
-      }
+      untracked(() => {
+        this.clearAutoplay();
+        if (interval > 0 && !this.hoverPaused && !this.isPaused()) {
+          this.startAutoplayTimer(interval);
+        }
+      });
+    });
+
+    // Re-evaluate autoplay when isPaused changes
+    effect(() => {
+      const paused = this.isPaused();
+      untracked(() => {
+        this.clearAutoplay();
+        const interval = this.autoplay();
+        if (interval > 0 && !this.hoverPaused && !paused) {
+          this.startAutoplayTimer(interval);
+        }
+      });
     });
 
     this.destroyRef.onDestroy(() => {
@@ -376,22 +573,86 @@ export class CarouselComponent {
     }
   }
 
+  // ── Touch / Swipe Gestures ─────────────────────────────────
+
+  /** Record start position and timestamp. */
+  protected onTouchStart(event: TouchEvent): void {
+    const touch = event.changedTouches[0];
+    this.touchStartX = touch.clientX;
+    this.touchCurrentX = touch.clientX;
+    this.touchStartTime = Date.now();
+  }
+
+  /** Track movement so we can detect direction during the gesture. */
+  protected onTouchMove(event: TouchEvent): void {
+    this.touchCurrentX = event.changedTouches[0].clientX;
+  }
+
+  /**
+   * On finger lift, decide whether to navigate.
+   * Navigates if:
+   *   - distance ≥ SWIPE_THRESHOLD, OR
+   *   - velocity ≥ SWIPE_VELOCITY (fast flick)
+   * Prevents interfering with native scroll snap on tiny/slow movements.
+   */
+  protected onTouchEnd(event: TouchEvent): void {
+    const endX = event.changedTouches[0].clientX;
+    const distance = endX - this.touchStartX;
+    const elapsed = Date.now() - this.touchStartTime;
+    const velocity = Math.abs(distance) / Math.max(elapsed, 1);
+
+    const isSwipe = Math.abs(distance) >= this.SWIPE_THRESHOLD || velocity >= this.SWIPE_VELOCITY;
+    if (!isSwipe) return;
+
+    // Prevent the native scroll snap from also firing
+    event.preventDefault();
+
+    if (distance < 0) {
+      this.next(); // swipe left → next slide
+    } else {
+      this.prev(); // swipe right → prev slide
+    }
+  }
+
   /** Pause autoplay on hover or focus — per WCAG 2.1 SC 2.2.2. */
   protected onPointerEnter(): void {
-    this.paused = true;
+    this.hoverPaused = true;
     this.clearAutoplay();
   }
 
-  /** Resume autoplay when hover/focus is lost. */
+  /** Resume autoplay when hover/focus is lost (respects user isPaused state). */
   protected onPointerLeave(): void {
-    this.paused = false;
-    const interval = this.autoplay();
-    if (interval > 0) {
-      this.autoplayTimer = setInterval(() => {
-        const nextIdx = this.currentIndex() < this.maxIndex() ? this.currentIndex() + 1 : 0;
-        this.goTo(nextIdx);
-      }, interval);
+    this.hoverPaused = false;
+    if (!this.isPaused()) {
+      const interval = this.autoplay();
+      if (interval > 0) {
+        this.startAutoplayTimer(interval);
+      }
     }
+  }
+
+  /** Toggle user-controlled pause state. */
+  togglePause(): void {
+    const nowPaused = !this.isPaused();
+    this.isPaused.set(nowPaused);
+    if (nowPaused) {
+      this.clearAutoplay();
+      this.liveAnnouncer.announce('Autoplay paused', 'polite');
+    } else {
+      const interval = this.autoplay();
+      if (interval > 0 && !this.hoverPaused) {
+        this.startAutoplayTimer(interval);
+      }
+      this.liveAnnouncer.announce('Autoplay resumed', 'polite');
+    }
+  }
+
+  private startAutoplayTimer(interval: number): void {
+    this.clearAutoplay();
+    (this as any).autoplayTimer = setInterval(() => {
+      const nextIdx = this.currentIndex() < this.maxIndex() ? this.currentIndex() + 1 : 0;
+      this.goTo(nextIdx);
+    }, interval);
   }
 
   private syncIndexFromScroll(): void {

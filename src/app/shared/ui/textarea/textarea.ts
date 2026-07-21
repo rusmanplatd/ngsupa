@@ -6,7 +6,7 @@ import {
   signal,
   viewChild,
   computed,
-  afterRenderEffect,
+  afterNextRender,
 } from '@angular/core';
 
 @Component({
@@ -44,7 +44,7 @@ import {
         <label
           [for]="inputId()"
           class="pointer-events-none absolute left-3 top-3 text-base transition-all duration-normal ease-default peer-not-placeholder-shown:top-1.5 peer-not-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-xs"
-          [class]="focused() ? 'text-system-blue' : 'text-[var(--text-tertiary)]'"
+          [class]="focused() ? 'text-[var(--input-focus-border)]' : 'text-[var(--text-tertiary)]'"
         >
           {{ label() }}
         </label>
@@ -54,7 +54,7 @@ import {
     <div class="mt-1.5 flex items-center justify-between px-1">
       <div class="flex-1 min-w-0">
         @if (error()) {
-          <p [id]="inputId() + '-error'" role="alert" class="text-xs text-system-red">
+          <p [id]="inputId() + '-error'" role="alert" class="text-xs text-[var(--input-error-color)]">
             {{ error() }}
           </p>
         } @else if (hint()) {
@@ -105,18 +105,23 @@ export class TextareaComponent {
   private readonly textareaElRef = viewChild<ElementRef<HTMLTextAreaElement>>('textareaEl');
 
   constructor() {
-    afterRenderEffect(() => {
+    // Initialise charCount once from the DOM after first render.
+    // afterNextRender() runs exactly once — no reactive loop.
+    // Subsequent updates are handled by the onInput() event handler.
+    afterNextRender(() => {
       const el = this.textareaElRef()?.nativeElement;
-      if (el) this.charCount.set(el.value.length);
+      if (el) {
+        this.charCount.set(el.value.length);
+      }
     });
   }
 
   protected readonly containerClasses = computed(() => {
     if (this.error()) {
-      return 'border-system-red bg-[var(--surface-primary)]';
+      return 'border-[var(--input-error-border)] bg-[var(--surface-primary)]';
     }
     if (this.focused()) {
-      return 'border-system-blue bg-[var(--surface-primary)]';
+      return 'border-[var(--input-focus-border)] bg-[var(--surface-primary)]';
     }
     return 'border-[var(--border-default)] bg-[var(--form-field-glass)] hover:border-[var(--border-opaque)]';
   });
@@ -137,9 +142,9 @@ export class TextareaComponent {
     const max = this.maxLength();
     if (!max) return 'text-[var(--text-tertiary)]';
     const pct = count / max;
-    if (pct > 1) return 'text-system-red font-medium';
-    if (pct > 0.9) return 'text-system-orange font-medium';
-    if (pct > 0.75) return 'text-system-yellow';
+    if (pct > 1) return 'text-[var(--input-counter-error)] font-medium';
+    if (pct > 0.9) return 'text-[var(--input-counter-warning)] font-medium';
+    if (pct > 0.75) return 'text-[var(--input-counter-warning)]';
     return 'text-[var(--text-tertiary)]';
   });
 

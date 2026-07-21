@@ -7,12 +7,15 @@ import {
   signal,
   ElementRef,
   viewChildren,
-  afterRenderEffect,
+  afterNextRender,
   AfterViewInit,
   inject,
+  Injector,
   DestroyRef,
   Directive,
   PLATFORM_ID,
+  effect,
+  untracked,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { LucideDynamicIcon } from '@lucide/angular';
@@ -167,7 +170,7 @@ export class TabFocusItemDirective implements FocusableOption {
       position: absolute;
       bottom: -0.5px;
       height: 2.5px;
-      background: var(--color-system-blue);
+      background: var(--tabs-indicator-bg);
       border-radius: 2px 2px 0 0;
       transition: left 0.3s var(--ease-default),
                   width 0.3s var(--ease-default);
@@ -184,7 +187,7 @@ export class TabFocusItemDirective implements FocusableOption {
       position: absolute;
       left: -0.5px;
       width: 2.5px;
-      background: var(--color-system-blue);
+      background: var(--tabs-indicator-bg);
       border-radius: 0 2px 2px 0;
       transition: top 0.3s var(--ease-default),
                   height 0.3s var(--ease-default);
@@ -298,7 +301,7 @@ export class TabFocusItemDirective implements FocusableOption {
 
     /* Active states per variant */
     .tabs__tab--active.tabs__tab--underline {
-      color: var(--color-system-blue);
+      color: var(--tabs-active-color);
     }
 
     .tabs__tab--active.tabs__tab--filled {
@@ -306,7 +309,7 @@ export class TabFocusItemDirective implements FocusableOption {
     }
 
     .tabs__tab--active.tabs__tab--pills {
-      color: var(--color-system-blue);
+      color: var(--tabs-active-color);
     }
 
     /* Disabled */
@@ -394,7 +397,7 @@ export class TabFocusItemDirective implements FocusableOption {
       letter-spacing: 0;
       text-transform: none;
       color: #fff;
-      background: var(--color-system-red);
+      background: var(--color-error);
       border-radius: var(--radius-full);
       animation: tabs-badge-in 0.4s var(--ease-spring) both;
     }
@@ -445,6 +448,7 @@ export class TabsComponent implements AfterViewInit {
   private readonly tabBtns = viewChildren<ElementRef<HTMLButtonElement>>('tabBtn');
   private readonly tabFocusItems = viewChildren(TabFocusItemDirective);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
 
   private keyManager: FocusKeyManager<TabFocusItemDirective> | null = null;
 
@@ -472,24 +476,39 @@ export class TabsComponent implements AfterViewInit {
   });
 
   constructor() {
-    afterRenderEffect(() => {
-      const btns = this.tabBtns();
+    // Update indicator position when active tab or tabs list changes.
+    // effect() tracks reactive signals; afterNextRender() defers DOM reads
+    // until after paint; untracked() prevents indicator writes from creating
+    // a reactive dependency that re-triggers this effect (avoids NG0103).
+    effect(() => {
       const active = this.activeTab();
       const allTabs = this.tabs();
-      const idx = allTabs.findIndex(t => t.id === active);
-      if (idx >= 0 && btns[idx]) {
-        const el = btns[idx].nativeElement;
-        if (this.isHorizontal()) {
-          this.indicatorLeft.set(el.offsetLeft);
-          this.indicatorWidth.set(el.offsetWidth);
-        } else {
-          this.indicatorTop.set(el.offsetTop);
-          this.indicatorHeight.set(el.offsetHeight);
+      const horizontal = this.isHorizontal();
+      afterNextRender(() => {
+        const btns = untracked(() => this.tabBtns());
+        const idx = allTabs.findIndex(t => t.id === active);
+        if (idx >= 0 && btns[idx]) {
+          const el = btns[idx].nativeElement;
+          if (horizontal) {
+            const newLeft = el.offsetLeft;
+            const newWidth = el.offsetWidth;
+            untracked(() => {
+              if (this.indicatorLeft() !== newLeft) this.indicatorLeft.set(newLeft);
+              if (this.indicatorWidth() !== newWidth) this.indicatorWidth.set(newWidth);
+            });
+          } else {
+            const newTop = el.offsetTop;
+            const newHeight = el.offsetHeight;
+            untracked(() => {
+              if (this.indicatorTop() !== newTop) this.indicatorTop.set(newTop);
+              if (this.indicatorHeight() !== newHeight) this.indicatorHeight.set(newHeight);
+            });
+          }
         }
-      }
 
-      // Rebuild key manager when items change (orientation-aware)
-      this.buildKeyManager();
+        // Rebuild key manager when items change
+        untracked(() => this.buildKeyManager());
+      }, { injector: this.injector });
     });
   }
 

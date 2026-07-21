@@ -112,8 +112,8 @@ export class ToggleComponent implements ControlValueAccessor {
   protected readonly trackClasses = computed(() => {
     const on = this.internalChecked();
     return on
-      ? 'bg-system-blue w-[51px] h-[31px] p-[2px]'
-      : 'bg-[var(--fill-secondary)] w-[51px] h-[31px] p-[2px]';
+      ? 'bg-[var(--toggle-active-bg)] w-[51px] h-[31px] p-[2px]'
+      : 'bg-[var(--toggle-inactive-bg)] w-[51px] h-[31px] p-[2px]';
   });
 
   protected readonly trackShadow = computed(() => {

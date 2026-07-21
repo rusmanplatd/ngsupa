@@ -285,6 +285,270 @@
     inset 0 1px 3px oklch(0% 0 0 / 0.12),
     inset 0 1px 3px oklch(0% 0 0 / 0.3)
   );
+
+  /* ============================================================
+     Angular Material-style Design Token System
+     Tier 2: System Role Tokens (semantic, theme-switchable)
+     ============================================================ */
+
+  /* ── Primary (default: system-blue) ──────────────────────── */
+  --color-primary: var(--color-system-blue);
+  --color-primary-hover: var(--color-system-blue-hover);
+  --color-primary-active: var(--color-system-blue-active);
+  --color-primary-container: var(--color-system-blue-light);
+  --color-primary-on: #ffffff;
+
+  /* ── Error / Destructive ─────────────────────────────────── */
+  --color-error: var(--color-system-red);
+  --color-error-hover: var(--color-system-red-hover);
+  --color-error-active: var(--color-system-red-active);
+  --color-error-container: var(--color-system-red-light);
+  --color-error-on: #ffffff;
+
+  /* ── Success ─────────────────────────────────────────────── */
+  --color-success: var(--color-system-green);
+  --color-success-hover: var(--color-system-green-hover);
+  --color-success-active: var(--color-system-green-active);
+  --color-success-container: var(--color-system-green-light);
+  --color-success-on: #ffffff;
+
+  /* ── Warning ─────────────────────────────────────────────── */
+  --color-warning: var(--color-system-orange);
+  --color-warning-hover: var(--color-system-orange-hover);
+  --color-warning-active: var(--color-system-orange-active);
+  --color-warning-container: var(--color-system-orange-light);
+  --color-warning-on: #ffffff;
+
+  /* ── Info ────────────────────────────────────────────────── */
+  --color-info: var(--color-system-teal);
+  --color-info-hover: var(--color-system-teal-hover);
+  --color-info-container: var(--color-system-teal-light);
+  --color-info-on: #ffffff;
+
+  /* ── Secondary accents ───────────────────────────────────── */
+  --color-secondary: var(--color-system-purple);
+  --color-secondary-container: var(--color-system-purple-light);
+  --color-secondary-on: #ffffff;
+
+  /* ============================================================
+     Tier 3: Component Design Tokens
+     ============================================================ */
+
+  /* ── Button ──────────────────────────────────────────────── */
+  --btn-filled-bg: var(--color-primary);
+  --btn-filled-bg-hover: var(--color-primary-hover);
+  --btn-filled-bg-active: var(--color-primary-active);
+  --btn-filled-color: var(--color-primary-on);
+  --btn-tinted-bg: var(--interactive-tint);
+  --btn-tinted-bg-hover: var(--interactive-tint-hover);
+  --btn-tinted-color: var(--color-primary);
+  --btn-plain-color: var(--color-primary);
+  --btn-plain-bg-hover: var(--fill-primary);
+  --btn-destructive-bg: var(--color-error);
+  --btn-destructive-bg-hover: var(--color-error-hover);
+  --btn-destructive-bg-active: var(--color-error-active);
+  --btn-destructive-color: var(--color-error-on);
+  --btn-ghost-color: var(--text-secondary);
+  --btn-ghost-border-hover: var(--border-default);
+  --btn-ghost-bg-hover: var(--fill-primary);
+  --btn-gray-bg: var(--fill-secondary);
+  --btn-gray-bg-hover: var(--fill-primary);
+  --btn-gray-bg-active: var(--fill-tertiary);
+  --btn-gray-color: var(--text-primary);
+
+  /* ── Badge ───────────────────────────────────────────────── */
+  --badge-default-bg: var(--color-primary);
+  --badge-default-color: var(--color-primary-on);
+  --badge-default-subtle-bg: var(--color-primary-container);
+  --badge-default-subtle-color: var(--color-primary);
+  --badge-success-bg: var(--color-success);
+  --badge-success-color: var(--color-success-on);
+  --badge-success-subtle-bg: var(--color-success-container);
+  --badge-success-subtle-color: var(--color-success);
+  --badge-warning-bg: var(--color-warning);
+  --badge-warning-color: var(--color-warning-on);
+  --badge-warning-subtle-bg: var(--color-warning-container);
+  --badge-warning-subtle-color: var(--color-warning);
+  --badge-error-bg: var(--color-error);
+  --badge-error-color: var(--color-error-on);
+  --badge-error-subtle-bg: var(--color-error-container);
+  --badge-error-subtle-color: var(--color-error);
+  --badge-info-bg: var(--color-info);
+  --badge-info-color: var(--color-info-on);
+  --badge-info-subtle-bg: var(--color-info-container);
+  --badge-info-subtle-color: var(--color-info);
+  --badge-neutral-bg: var(--fill-secondary);
+  --badge-neutral-color: var(--text-secondary);
+  --badge-neutral-subtle-bg: var(--fill-primary);
+  --badge-neutral-subtle-color: var(--text-secondary);
+
+  /* ── Alert ───────────────────────────────────────────────── */
+  --alert-info-bg: var(--color-primary-container);
+  --alert-info-color: var(--color-primary);
+  --alert-info-border: var(--color-primary);
+  --alert-success-bg: var(--color-success-container);
+  --alert-success-color: var(--color-success);
+  --alert-success-border: var(--color-success);
+  --alert-warning-bg: var(--color-warning-container);
+  --alert-warning-color: var(--color-warning);
+  --alert-warning-border: var(--color-warning);
+  --alert-error-bg: var(--color-error-container);
+  --alert-error-color: var(--color-error);
+  --alert-error-border: var(--color-error);
+
+  /* ── Toast ───────────────────────────────────────────────── */
+  --toast-info-border: color-mix(in oklch, var(--color-primary) 30%, transparent);
+  --toast-info-color: var(--color-primary);
+  --toast-success-border: color-mix(in oklch, var(--color-success) 30%, transparent);
+  --toast-success-color: var(--color-success);
+  --toast-warning-border: color-mix(in oklch, var(--color-warning) 30%, transparent);
+  --toast-warning-color: var(--color-warning);
+  --toast-error-border: color-mix(in oklch, var(--color-error) 30%, transparent);
+  --toast-error-color: var(--color-error);
+
+  /* ── Chip ────────────────────────────────────────────────── */
+  --chip-selected-bg: var(--color-primary);
+  --chip-selected-color: var(--color-primary-on);
+  --chip-selected-border: var(--color-primary);
+
+  /* ── Toggle ──────────────────────────────────────────────── */
+  --toggle-active-bg: var(--color-primary);
+  --toggle-inactive-bg: var(--fill-secondary);
+
+  /* ── Checkbox ────────────────────────────────────────────── */
+  --checkbox-checked-bg: var(--color-primary);
+  --checkbox-checked-border: var(--color-primary);
+  --checkbox-unchecked-border-hover: var(--color-primary);
+  --checkbox-unchecked-bg-hover: var(--interactive-tint);
+
+  /* ── Radio ───────────────────────────────────────────────── */
+  --radio-checked-fill: var(--color-primary);
+  --radio-checked-border: var(--color-primary);
+  --radio-unchecked-border-hover: var(--color-primary);
+  --radio-container-checked: var(--interactive-tint);
+
+  /* ── Input / Textarea / Select / Search ─────────────────── */
+  --input-focus-border: var(--color-primary);
+  --input-focus-glow: var(--form-control-glow);
+  --input-error-border: var(--color-error);
+  --input-error-glow: var(--form-control-glow-red);
+  --input-success-border: var(--color-success);
+  --input-success-glow: var(--form-control-glow-green);
+  --input-success-icon: var(--color-success);
+  --input-error-color: var(--color-error);
+  --input-counter-warning: var(--color-warning);
+  --input-counter-error: var(--color-error);
+
+  /* ── Stepper (numeric) ───────────────────────────────────── */
+  --stepper-accent: var(--color-primary);
+
+  /* ── Progress ────────────────────────────────────────────── */
+  --progress-bar-bg: var(--color-primary);
+  --progress-bar-blue: var(--color-primary);
+  --progress-bar-green: var(--color-success);
+  --progress-bar-red: var(--color-error);
+  --progress-bar-orange: var(--color-warning);
+  --progress-track-bg: var(--fill-secondary);
+  --progress-ring-blue: var(--color-primary);
+  --progress-ring-green: var(--color-success);
+  --progress-ring-red: var(--color-error);
+  --progress-ring-orange: var(--color-warning);
+
+  /* ── Tabs / TabBar / SegmentedControl ────────────────────── */
+  --tabs-active-color: var(--color-primary);
+  --tabs-indicator-bg: var(--color-primary);
+  --tab-bar-active-color: var(--color-primary);
+  --tab-bar-active-bg: var(--interactive-tint);
+
+  /* ── Slider ──────────────────────────────────────────────── */
+  --slider-track-fill: var(--color-primary);
+  --slider-thumb-bg: var(--color-primary);
+  --slider-value-color: var(--color-primary);
+
+  /* ── Timeline ────────────────────────────────────────────── */
+  --timeline-default-color: var(--color-primary);
+  --timeline-default-bg: var(--color-primary);
+  --timeline-success-color: var(--color-success);
+  --timeline-success-bg: var(--color-success);
+  --timeline-warning-color: var(--color-warning);
+  --timeline-error-color: var(--color-error);
+  --timeline-info-color: var(--color-info);
+
+  /* ── Date Picker / Time Picker ───────────────────────────── */
+  --datepicker-accent: var(--color-primary);
+  --datepicker-today-color: var(--color-primary);
+  --datepicker-selected-bg: var(--color-primary);
+  --datepicker-error-border: var(--color-error);
+  --datepicker-error-color: var(--color-error);
+  --timepicker-accent: var(--color-primary);
+  --timepicker-selected-bg: var(--color-primary);
+  --timepicker-error-border: var(--color-error);
+  --timepicker-error-color: var(--color-error);
+
+  /* ── Paginator ───────────────────────────────────────────── */
+  --paginator-active-color: var(--color-primary);
+
+  /* ── Search Bar ──────────────────────────────────────────── */
+  --search-focus-border: var(--color-primary);
+  --search-icon-active-color: var(--color-primary);
+  --search-cancel-color: var(--color-primary);
+
+  /* ── Select (dropdown checkmark) ────────────────────────── */
+  --select-selected-color: var(--color-primary);
+  --select-checkmark-color: var(--color-primary);
+}
+
+/* ============================================================
+   Theme Presets (override --color-primary palette)
+   Apply class to <html> or any wrapper element.
+   ============================================================ */
+
+/* Ocean — deep cyan-blue */
+.theme-ocean {
+  --color-system-blue: oklch(56% 0.22 220);
+  --color-system-blue-hover: oklch(51% 0.22 220);
+  --color-system-blue-active: oklch(46% 0.22 220);
+  --color-system-blue-light: oklch(93% 0.05 220);
+  --form-control-glow: light-dark(
+    0 0 0 3px oklch(56% 0.22 220 / 0.15),
+    0 0 0 3px oklch(62% 0.18 220 / 0.2)
+  );
+}
+
+/* Rose — vibrant pink-red */
+.theme-rose {
+  --color-system-blue: oklch(58% 0.24 350);
+  --color-system-blue-hover: oklch(53% 0.24 350);
+  --color-system-blue-active: oklch(48% 0.24 350);
+  --color-system-blue-light: oklch(93% 0.06 350);
+  --form-control-glow: light-dark(
+    0 0 0 3px oklch(58% 0.24 350 / 0.15),
+    0 0 0 3px oklch(64% 0.2 350 / 0.2)
+  );
+}
+
+/* Forest — natural green */
+.theme-forest {
+  --color-system-blue: oklch(55% 0.20 145);
+  --color-system-blue-hover: oklch(50% 0.20 145);
+  --color-system-blue-active: oklch(45% 0.20 145);
+  --color-system-blue-light: oklch(93% 0.05 145);
+  --form-control-glow: light-dark(
+    0 0 0 3px oklch(55% 0.20 145 / 0.15),
+    0 0 0 3px oklch(61% 0.16 145 / 0.2)
+  );
+}
+
+/* Amethyst — deep violet */
+.theme-amethyst {
+  --color-system-blue: oklch(52% 0.24 290);
+  --color-system-blue-hover: oklch(47% 0.24 290);
+  --color-system-blue-active: oklch(42% 0.24 290);
+  --color-system-blue-light: oklch(93% 0.06 290);
+  --form-control-glow: light-dark(
+    0 0 0 3px oklch(52% 0.24 290 / 0.15),
+    0 0 0 3px oklch(58% 0.20 290 / 0.2)
+  );
 }
 
 /* ── Dark-mode shadow overrides ──────────────────────────── */
@@ -551,5 +815,48 @@ body {
   }
   .app-modal-panel .rounded-2xl {
     border-radius: 20px 20px 0 0;
+  }
+}
+
+/* ============================================================
+   Accordion Panel — Collapse / Expand
+   Lives in global styles to avoid Angular ViewEncapsulation
+   and HMR issues with the grid-template-rows trick.
+   ============================================================ */
+
+.accordion-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-normal) cubic-bezier(0.2, 0, 0, 1);
+  overflow: hidden;
+}
+
+/* min-height: 0 prevents the grid row from auto-sizing to its content height
+   (the default `auto` minimum means 0fr still shows the content otherwise) */
+.accordion-panel > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.accordion-panel--open {
+  grid-template-rows: 1fr;
+}
+
+/* Fade in the content only while the panel is open (not on initial render) */
+.accordion-panel--open .accordion-panel__content {
+  animation: accordion-content-in 0.22s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes accordion-content-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accordion-panel {
+    transition-duration: 0.01ms !important;
+  }
+  .accordion-panel--open .accordion-panel__content {
+    animation: none !important;
   }
 }

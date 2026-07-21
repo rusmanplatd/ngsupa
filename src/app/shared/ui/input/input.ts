@@ -50,7 +50,7 @@ export type InputState = 'default' | 'error' | 'success';
           [lucideIcon]="leadingIcon()!"
           [size]="18"
           class="ml-3 shrink-0 transition-colors duration-fast"
-          [class]="focused() ? 'text-system-blue' : 'text-[var(--text-tertiary)]'"
+          [class]="focused() ? 'text-[var(--input-focus-border)]' : 'text-[var(--text-tertiary)]'"
         />
       }
       <div class="relative flex-1 min-w-0">
@@ -76,7 +76,7 @@ export type InputState = 'default' | 'error' | 'success';
         <label
           [for]="inputId()"
           class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base transition-all duration-normal ease-default peer-not-placeholder-shown:top-2.5 peer-not-placeholder-shown:translate-y-0 peer-not-placeholder-shown:text-xs peer-focus:top-2.5 peer-focus:translate-y-0 peer-focus:text-xs"
-          [class]="focused() ? 'text-system-blue' : 'text-[var(--text-tertiary)]'"
+          [class]="focused() ? 'text-[var(--input-focus-border)]' : 'text-[var(--text-tertiary)]'"
         >
           {{ label() }}
         </label>
@@ -106,7 +106,7 @@ export type InputState = 'default' | 'error' | 'success';
         </button>
       }
       @if (state() === 'success' && !focused()) {
-        <svg lucideIcon="check" [size]="18" class="mr-3 text-system-green shrink-0 success-icon" aria-hidden="true" />
+        <svg lucideIcon="check" [size]="18" class="mr-3 text-[var(--input-success-icon)] shrink-0 success-icon" aria-hidden="true" />
       }
       @if (trailingIcon() && type() !== 'password' && state() !== 'success') {
         <svg
@@ -121,7 +121,7 @@ export type InputState = 'default' | 'error' | 'success';
     <div class="mt-1.5 flex items-center justify-between px-1">
       <div class="flex-1 min-w-0">
         @if (error()) {
-          <p [id]="inputId() + '-error'" role="alert" class="text-xs text-system-red">
+          <p [id]="inputId() + '-error'" role="alert" class="text-xs text-[var(--input-error-color)]">
             {{ error() }}
           </p>
         } @else if (hint()) {
@@ -255,13 +255,13 @@ export class InputComponent implements ControlValueAccessor, Validator {
   protected readonly containerClasses = computed(() => {
     const base = 'backdrop-blur-sm';
     if (this.error() || this.state() === 'error') {
-      return `${base} border-system-red bg-[var(--surface-primary)]`;
+      return `${base} border-[var(--input-error-border)] bg-[var(--surface-primary)]`;
     }
     if (this.state() === 'success' && !this.focused()) {
-      return `${base} border-system-green bg-[var(--surface-primary)]`;
+      return `${base} border-[var(--input-success-border)] bg-[var(--surface-primary)]`;
     }
     if (this.focused()) {
-      return `${base} border-system-blue bg-[var(--surface-primary)]`;
+      return `${base} border-[var(--input-focus-border)] bg-[var(--surface-primary)]`;
     }
     return `${base} border-[var(--border-default)] bg-[var(--form-field-glass)] hover:border-[var(--border-opaque)]`;
   });
@@ -285,9 +285,9 @@ export class InputComponent implements ControlValueAccessor, Validator {
     const max = this.maxLength();
     if (!max) return 'text-[var(--text-tertiary)]';
     const pct = count / max;
-    if (pct > 1) return 'text-system-red font-medium';
-    if (pct > 0.9) return 'text-system-orange font-medium';
-    if (pct > 0.75) return 'text-system-yellow';
+    if (pct > 1) return 'text-[var(--input-counter-error)] font-medium';
+    if (pct > 0.9) return 'text-[var(--input-counter-warning)] font-medium';
+    if (pct > 0.75) return 'text-[var(--input-counter-warning)]';
     return 'text-[var(--text-tertiary)]';
   });
 

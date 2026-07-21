@@ -272,7 +272,7 @@ export type TimePickerMode = 'single' | 'range';
     }
 
     .tp-range-tab--active {
-      border-color: var(--color-system-blue);
+      border-color: var(--timepicker-accent);
       background: oklch(59% 0.24 264 / 0.08);
     }
 
@@ -290,7 +290,7 @@ export type TimePickerMode = 'single' | 'range';
     }
 
     .tp-range-tab--active .tp-range-tab-label {
-      color: var(--color-system-blue);
+      color: var(--timepicker-accent);
     }
 
     .tp-range-tab-value {
@@ -301,7 +301,7 @@ export type TimePickerMode = 'single' | 'range';
     }
 
     .tp-range-tab--active .tp-range-tab-value {
-      color: var(--color-system-blue);
+      color: var(--timepicker-accent);
     }
 
     .tp-range-arrow {
@@ -445,18 +445,18 @@ export type TimePickerMode = 'single' | 'range';
     }
 
     .tp-footer-btn--accent {
-      color: var(--color-system-blue);
+      color: var(--timepicker-accent);
       font-weight: 600;
     }
 
     .tp-footer-btn--danger {
-      color: var(--color-system-red);
+      color: var(--timepicker-error-color);
       font-weight: 500;
     }
 
     .tp-footer-btn--confirm {
       color: white;
-      background: var(--color-system-blue);
+      background: var(--timepicker-selected-bg);
       font-weight: 600;
       border-radius: 10px;
       padding: 7px 20px;
@@ -891,19 +891,19 @@ export class TimePickerPanelComponent implements AfterViewInit {
       }
 
       &:focus-visible {
-        border-color: var(--color-system-blue);
+        border-color: var(--timepicker-accent);
         box-shadow: 0 0 0 3px oklch(59% 0.24 264 / 0.15);
       }
     }
 
     .tp-trigger--open {
-      border-color: var(--color-system-blue);
+      border-color: var(--timepicker-accent);
       background: var(--surface-primary);
       box-shadow: 0 0 0 3px oklch(59% 0.24 264 / 0.12);
     }
 
     .tp-trigger--error {
-      border-color: var(--color-system-red) !important;
+      border-color: var(--timepicker-error-border) !important;
       box-shadow: none !important;
     }
 
@@ -925,7 +925,7 @@ export class TimePickerPanelComponent implements AfterViewInit {
     }
 
     .tp-trigger--open .tp-trigger-icon {
-      color: var(--color-system-blue);
+      color: var(--timepicker-accent);
     }
 
     /* ── Trigger Content ───────────────────────────── */
@@ -956,7 +956,7 @@ export class TimePickerPanelComponent implements AfterViewInit {
     }
 
     .tp-trigger-label--accent {
-      color: var(--color-system-blue);
+      color: var(--timepicker-accent);
     }
 
     .tp-trigger-value {
@@ -1026,7 +1026,7 @@ export class TimePickerPanelComponent implements AfterViewInit {
     }
 
     .tp-hint-text--error {
-      color: var(--color-system-red);
+      color: var(--timepicker-error-color);
     }
   `,
 })

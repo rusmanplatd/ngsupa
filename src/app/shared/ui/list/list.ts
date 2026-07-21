@@ -37,7 +37,7 @@ export class ListComponent {
     <button
       type="button"
       class="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors duration-fast hover:bg-[var(--fill-primary)] active:bg-[var(--fill-secondary)]"
-      [class]="destructive() ? 'text-system-red' : 'text-[var(--text-primary)]'"
+      [class]="destructive() ? 'text-[var(--color-error)]' : 'text-[var(--text-primary)]'"
       [disabled]="disabled()"
       (click)="pressed.emit()"
     >
@@ -45,7 +45,7 @@ export class ListComponent {
         <span
           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
           [class]="destructive()
-            ? 'bg-system-red-light text-system-red'
+            ? 'bg-[var(--color-error-container)] text-[var(--color-error)]'
             : 'bg-[var(--fill-secondary)] text-[var(--text-secondary)]'"
         >
           <svg [lucideIcon]="leadingIcon()!" [size]="18" />

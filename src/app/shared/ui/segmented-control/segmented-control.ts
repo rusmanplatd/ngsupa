@@ -6,10 +6,13 @@ import {
   signal,
   ElementRef,
   viewChildren,
-  afterRenderEffect,
+  afterNextRender,
   inject,
+  Injector,
   DestroyRef,
   AfterViewInit,
+  effect,
+  untracked,
 } from '@angular/core';
 import { FocusKeyManager, FocusableOption } from '@angular/cdk/a11y';
 
@@ -82,6 +85,9 @@ export class SegmentedControlComponent implements AfterViewInit {
   private readonly segmentBtns = viewChildren<ElementRef<HTMLButtonElement>>('segmentBtn');
   private readonly segmentFocusItems = viewChildren(SegmentFocusItemDirective);
   private readonly destroyRef = inject(DestroyRef);
+  // Captured injection context so afterNextRender() can be called from
+  // inside an effect() callback (which is not an injection context).
+  private readonly injector = inject(Injector);
 
   private keyManager: FocusKeyManager<SegmentFocusItemDirective> | null = null;
 
@@ -89,19 +95,29 @@ export class SegmentedControlComponent implements AfterViewInit {
   protected readonly indicatorWidth = signal(0);
 
   constructor() {
-    afterRenderEffect(() => {
-      const btns = this.segmentBtns();
+    // Update the sliding indicator position whenever value or options change.
+    // effect() reacts to signal changes; afterNextRender() (with the captured
+    // injector) defers DOM reads until after paint; untracked() prevents writes
+    // from feeding back as reactive dependencies.
+    effect(() => {
       const val = this.value();
       const opts = this.options();
-      const idx = opts.findIndex((o) => o.value === val);
-      if (idx >= 0 && btns[idx]) {
-        const el = btns[idx].nativeElement;
-        this.indicatorLeft.set(el.offsetLeft);
-        this.indicatorWidth.set(el.offsetWidth);
-      }
+      afterNextRender(() => {
+        const btns = untracked(() => this.segmentBtns());
+        const idx = opts.findIndex((o) => o.value === val);
+        if (idx >= 0 && btns[idx]) {
+          const el = btns[idx].nativeElement;
+          const newLeft = el.offsetLeft;
+          const newWidth = el.offsetWidth;
+          untracked(() => {
+            if (this.indicatorLeft() !== newLeft) this.indicatorLeft.set(newLeft);
+            if (this.indicatorWidth() !== newWidth) this.indicatorWidth.set(newWidth);
+          });
+        }
 
-      // Rebuild key manager when items change
-      this.buildKeyManager();
+        // Rebuild key manager when items change
+        untracked(() => this.buildKeyManager());
+      }, { injector: this.injector });
     });
   }
 

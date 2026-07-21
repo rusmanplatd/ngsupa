@@ -26,8 +26,8 @@ import { LucideDynamicIcon } from '@lucide/angular';
         <svg
           lucideIcon="search"
           [size]="16"
-          class="ml-3 shrink-0 transition-colors duration-normal"
-          [class]="expanded() ? 'text-system-blue' : 'text-[var(--text-tertiary)]'"
+          class="ml-2.5 shrink-0 transition-colors duration-normal"
+          [class]="expanded() ? 'text-[var(--search-icon-active-color)]' : 'text-[var(--text-tertiary)]'"
         />
         <input
           #searchInput
@@ -38,7 +38,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
           (focus)="onFocus()"
           (blur)="onBlur()"
           (keydown.escape)="onClear()"
-          class="block w-full bg-transparent py-2.5 pl-2 pr-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
+          class="block w-full bg-transparent py-2.5 pl-1.5 pr-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
           [attr.aria-label]="placeholder()"
         />
         @if (value()) {
@@ -56,7 +56,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
       @if (showCancel() && expanded()) {
         <button
           type="button"
-          class="cancel-btn shrink-0 text-sm font-medium text-system-blue transition-all duration-fast hover:opacity-70 active:scale-95"
+          class="cancel-btn shrink-0 text-sm font-medium text-[var(--search-cancel-color)] transition-all duration-fast hover:opacity-70 active:scale-95"
           (click)="onCancel()"
         >
           Cancel
@@ -105,7 +105,7 @@ export class SearchBarComponent implements OnDestroy {
 
   protected readonly containerClasses = computed(() => {
     if (this.expanded()) {
-      return 'bg-[var(--surface-primary)] border border-system-blue backdrop-blur-sm';
+      return 'bg-[var(--surface-primary)] border border-[var(--search-focus-border)] backdrop-blur-sm';
     }
     return 'bg-[var(--form-field-glass)] border border-transparent hover:bg-[var(--fill-secondary)] backdrop-blur-sm';
   });

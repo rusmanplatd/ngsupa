@@ -1,4 +1,4 @@
-import { Component, input, model, computed, signal, viewChild, ElementRef, afterRenderEffect, forwardRef } from '@angular/core';
+import { Component, input, model, computed, signal, viewChild, ElementRef, effect, untracked, forwardRef } from '@angular/core';
 import {
   ControlValueAccessor,
   NG_VALUE_ACCESSOR,
@@ -26,7 +26,7 @@ import {
           </label>
         }
         @if (showValue()) {
-          <span class="text-sm font-semibold tabular-nums text-system-blue min-w-[3ch] text-right">
+          <span class="text-sm font-semibold tabular-nums text-[var(--slider-value-color)] min-w-[3ch] text-right">
             {{ displayValue() }}
           </span>
         }
@@ -71,8 +71,8 @@ import {
       cursor: pointer;
       background: linear-gradient(
         to right,
-        var(--color-system-blue) 0%,
-        var(--color-system-blue) var(--fill-pct, 0%),
+        var(--slider-track-fill) 0%,
+        var(--slider-track-fill) var(--fill-pct, 0%),
         var(--fill-secondary, oklch(0% 0 0 / 0.06)) var(--fill-pct, 0%),
         var(--fill-secondary, oklch(0% 0 0 / 0.06)) 100%
       );
@@ -144,7 +144,7 @@ import {
     .slider-input::-moz-range-progress {
       height: 6px;
       border-radius: 9999px;
-      background: var(--color-system-blue);
+      background: var(--slider-track-fill);
     }
   `,
 })
@@ -178,8 +178,8 @@ export class SliderComponent implements ControlValueAccessor {
   });
 
   // ── ControlValueAccessor ────────────────────────────────────
-  private onChange: (val: number) => void = () => {};
-  private onTouchedFn: () => void = () => {};
+  private onChange: (val: number) => void = () => { };
+  private onTouchedFn: () => void = () => { };
 
   writeValue(value: number): void {
     const v = value ?? 0;
@@ -200,8 +200,19 @@ export class SliderComponent implements ControlValueAccessor {
   }
 
   constructor() {
-    afterRenderEffect(() => {
-      this.updateFillPercentage();
+    // Keep the CSS --fill-pct custom property in sync with the slider value.
+    // effect() tracks the reactive signals; untracked() writes to the DOM style
+    // property (a pure side-effect) without creating a new reactive dependency.
+    effect(() => {
+      const val = this.internalValue();
+      const min = this.min();
+      const max = this.max();
+      untracked(() => {
+        const el = this.sliderElRef()?.nativeElement;
+        if (!el) return;
+        const pct = ((val - min) / (max - min)) * 100;
+        el.style.setProperty('--fill-pct', `${pct}%`);
+      });
     });
   }
 

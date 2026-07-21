@@ -136,7 +136,7 @@ export class BottomSheetService {
       <div class="mx-3 mb-3 mt-1">
         <button
           type="button"
-          class="flex w-full items-center justify-center rounded-2xl bg-[var(--surface-primary)] px-5 py-3.5 text-lg font-semibold text-system-blue transition-colors hover:bg-[var(--fill-primary)]"
+          class="flex w-full items-center justify-center rounded-2xl bg-[var(--surface-primary)] px-5 py-3.5 text-lg font-semibold text-[var(--color-primary)] transition-colors hover:bg-[var(--fill-primary)]"
           (click)="close(null)"
         >
           {{ config.cancelLabel || 'Cancel' }}
@@ -172,7 +172,7 @@ export class BottomSheetPanelComponent implements OnDestroy {
 
   protected actionClasses(action: BottomSheetAction, last: boolean): string {
     const base = action.disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--fill-primary)]';
-    const color = action.destructive ? 'text-system-red' : 'text-system-blue';
+    const color = action.destructive ? 'text-[var(--color-error)]' : 'text-[var(--color-primary)]';
     const border = last ? '' : 'border-b border-[var(--separator)]';
     return `${base} ${color} ${border}`;
   }

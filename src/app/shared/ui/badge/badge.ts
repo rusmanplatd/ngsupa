@@ -56,21 +56,21 @@ export class BadgeComponent {
     const isSubtle = this.subtle();
 
     const solidMap: Record<BadgeVariant, string> = {
-      default: 'bg-system-blue text-white',
-      success: 'bg-system-green text-white',
-      warning: 'bg-system-orange text-white',
-      error: 'bg-system-red text-white',
-      neutral: 'bg-[var(--fill-secondary)] text-[var(--text-secondary)]',
-      info: 'bg-system-teal text-white',
+      default: 'bg-[var(--badge-default-bg)] text-[var(--badge-default-color)]',
+      success: 'bg-[var(--badge-success-bg)] text-[var(--badge-success-color)]',
+      warning: 'bg-[var(--badge-warning-bg)] text-[var(--badge-warning-color)]',
+      error: 'bg-[var(--badge-error-bg)] text-[var(--badge-error-color)]',
+      neutral: 'bg-[var(--badge-neutral-bg)] text-[var(--badge-neutral-color)]',
+      info: 'bg-[var(--badge-info-bg)] text-[var(--badge-info-color)]',
     };
 
     const subtleMap: Record<BadgeVariant, string> = {
-      default: 'bg-system-blue-light text-system-blue',
-      success: 'bg-system-green-light text-system-green',
-      warning: 'bg-system-orange-light text-system-orange',
-      error: 'bg-system-red-light text-system-red',
-      neutral: 'bg-[var(--fill-primary)] text-[var(--text-secondary)]',
-      info: 'bg-system-teal-light text-system-teal',
+      default: 'bg-[var(--badge-default-subtle-bg)] text-[var(--badge-default-subtle-color)]',
+      success: 'bg-[var(--badge-success-subtle-bg)] text-[var(--badge-success-subtle-color)]',
+      warning: 'bg-[var(--badge-warning-subtle-bg)] text-[var(--badge-warning-subtle-color)]',
+      error: 'bg-[var(--badge-error-subtle-bg)] text-[var(--badge-error-subtle-color)]',
+      neutral: 'bg-[var(--badge-neutral-subtle-bg)] text-[var(--badge-neutral-subtle-color)]',
+      info: 'bg-[var(--badge-info-subtle-bg)] text-[var(--badge-info-subtle-color)]',
     };
 
     const variantMap = isSubtle ? subtleMap : solidMap;

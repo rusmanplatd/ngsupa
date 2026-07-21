@@ -51,7 +51,7 @@ export interface RadioOption {
             [style.box-shadow]="internalValue() === option.value ? 'var(--form-control-glow)' : 'none'"
           >
             @if (internalValue() === option.value) {
-              <span class="block w-3 h-3 rounded-full bg-system-blue animate-radio-fill"></span>
+              <span class="block w-3 h-3 rounded-full bg-[var(--radio-checked-fill)] animate-radio-fill"></span>
             }
           </span>
           <div class="min-w-0">
@@ -150,7 +150,7 @@ export class RadioGroupComponent implements ControlValueAccessor {
     if (this.variant() === 'card') {
       const base = 'w-full rounded-xl px-4 py-3 border transition-all duration-normal';
       if (isSelected) {
-        return `${base} border-system-blue bg-[var(--interactive-tint)] cursor-pointer`;
+        return `${base} border-[var(--radio-checked-border)] bg-[var(--radio-container-checked)] cursor-pointer`;
       }
       return `${base} border-[var(--border-default)] bg-[var(--fill-primary)] hover:border-[var(--border-opaque)] hover:bg-[var(--fill-secondary)] cursor-pointer`;
     }
@@ -162,8 +162,8 @@ export class RadioGroupComponent implements ControlValueAccessor {
     const isSelected = this.internalValue() === option.value;
     const base = 'w-[22px] h-[22px]';
     return isSelected
-      ? `${base} border-system-blue`
-      : `${base} border-[var(--border-opaque)] hover:border-system-blue`;
+      ? `${base} border-[var(--radio-checked-border)]`
+      : `${base} border-[var(--border-opaque)] hover:border-[var(--radio-unchecked-border-hover)]`;
   }
 
   protected select(val: string): void {

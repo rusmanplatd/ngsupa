@@ -126,7 +126,7 @@ table {
 
 .sort-icon.sort-active {
   opacity: 1;
-  color: var(--color-system-blue);
+  color: var(--color-primary);
   animation: sort-pop 0.3s var(--ease-spring);
 }
 
@@ -152,7 +152,7 @@ table {
 
 .resize-handle:hover,
 .resize-handle:active {
-  background: var(--color-system-blue);
+  background: var(--color-primary);
 }
 
 /* ── Body — Data Rows ──────────────────────────────────────── */
@@ -558,3 +558,238 @@ table {
 .draggable-tbody.cdk-drop-list-dragging .draggable-row:not(.cdk-drag-placeholder) {
   transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
 }
+
+/* ── Column Visibility Panel ───────────────────────────────── */
+
+.col-vis-panel {
+  animation: panel-in 0.2s var(--ease-default);
+  transform-origin: top right;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.col-vis-item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Toolbar Export Button ─────────────────────────────────── */
+
+.toolbar-export-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* ── Column Filter Button ──────────────────────────────────── */
+
+.filter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-quaternary);
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--duration-fast) var(--ease-default);
+  flex-shrink: 0;
+}
+
+.data-header-cell:hover .filter-btn,
+.filter-btn--active,
+.filter-btn:focus-visible {
+  opacity: 1;
+}
+
+.filter-btn--active {
+  color: var(--color-primary);
+  background: var(--interactive-tint);
+}
+
+.filter-btn:hover {
+  background: var(--fill-secondary);
+  color: var(--text-secondary);
+}
+
+.filter-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* Active filter indicator dot on column header */
+.filter-indicator {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
+  animation: filter-dot-in 0.2s var(--ease-spring);
+}
+
+@keyframes filter-dot-in {
+  from { opacity: 0; transform: scale(0); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Filter Popover ────────────────────────────────────────── */
+
+.filter-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  min-width: 240px;
+  max-width: 300px;
+  padding: 12px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-thick);
+  box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(20px);
+  animation: filter-popover-in 0.18s var(--ease-default);
+  transform-origin: top left;
+}
+
+@keyframes filter-popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.filter-popover-title {
+  margin: 0 0 10px;
+  font: var(--type-caption-1);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.filter-operator-select {
+  display: block;
+  width: 100%;
+  padding: 6px 28px 6px 10px;
+  margin-bottom: 8px;
+  font: var(--type-subheadline);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--fill-primary);
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.filter-operator-select:hover {
+  border-color: var(--border-opaque);
+}
+
+.filter-operator-select:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  border-color: var(--color-primary);
+}
+
+.filter-value-input {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font: var(--type-subheadline);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--form-field-glass);
+  outline: none;
+  transition: all var(--duration-fast) var(--ease-default);
+  box-sizing: border-box;
+}
+
+.filter-value-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.filter-value-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--form-field-shadow), var(--form-control-glow);
+  background: var(--surface-primary);
+}
+
+.filter-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.filter-clear-btn {
+  padding: 5px 12px;
+  font: var(--type-caption-1);
+  font-weight: 500;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.filter-clear-btn:hover:not(:disabled) {
+  color: var(--text-secondary);
+  border-color: var(--border-opaque);
+  background: var(--fill-primary);
+}
+
+.filter-clear-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.filter-apply-btn {
+  padding: 5px 14px;
+  font: var(--type-caption-1);
+  font-weight: 600;
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-spring);
+}
+
+.filter-apply-btn:hover {
+  opacity: 0.88;
+}
+
+.filter-apply-btn:active {
+  transform: scale(0.95);
+}
+
+.filter-apply-btn:focus-visible,
+.filter-clear-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+

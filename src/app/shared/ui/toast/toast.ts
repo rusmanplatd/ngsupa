@@ -108,13 +108,13 @@ export class ToastContainerComponent {
   protected variantClasses(variant: ToastVariant): string {
     switch (variant) {
       case 'success':
-        return 'bg-[var(--glass-bg-thick)] border-system-green/30 text-system-green';
+        return 'bg-[var(--glass-bg-thick)] border-[var(--toast-success-border)] text-[var(--toast-success-color)]';
       case 'error':
-        return 'bg-[var(--glass-bg-thick)] border-system-red/30 text-system-red';
+        return 'bg-[var(--glass-bg-thick)] border-[var(--toast-error-border)] text-[var(--toast-error-color)]';
       case 'warning':
-        return 'bg-[var(--glass-bg-thick)] border-system-orange/30 text-system-orange';
+        return 'bg-[var(--glass-bg-thick)] border-[var(--toast-warning-border)] text-[var(--toast-warning-color)]';
       default:
-        return 'bg-[var(--glass-bg-thick)] border-system-blue/30 text-system-blue';
+        return 'bg-[var(--glass-bg-thick)] border-[var(--toast-info-border)] text-[var(--toast-info-color)]';
     }
   }
 
