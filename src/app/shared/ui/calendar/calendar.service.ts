@@ -6,6 +6,7 @@ import {
   TimeSlot,
   PositionedEvent,
   MAX_VISIBLE_EVENTS_MONTH,
+  MAX_CONCURRENT_EVENTS,
   TIME_GRID_HEIGHT_PER_HOUR,
   HOURS_IN_DAY,
 } from './calendar.models';
@@ -324,9 +325,18 @@ export function formatEventTime(d: Date): string {
 }
 
 /**
- * Layout overlapping timed events into columns using a greedy algorithm.
- * Returns PositionedEvent[] with top/height/left/width in percentages relative
- * to a 24-hour grid.
+ * Layout overlapping timed events into columns using a connected-component
+ * group algorithm.
+ *
+ * Algorithm:
+ *  1. Convert events to minute ranges.
+ *  2. Build overlap graph and extract connected components (clusters).
+ *  3. Within each cluster, greedily assign columns.
+ *  4. Cap visible columns at MAX_CONCURRENT_EVENTS; hidden events surface as
+ *     `overflowCount` on the rightmost visible event of the cluster.
+ *
+ * Returns PositionedEvent[] with top/height/left/width as percentages of the
+ * 24-hour grid.
  */
 function layoutPositionedEvents(
   events: CalendarEvent[],
@@ -337,53 +347,114 @@ function layoutPositionedEvents(
   const totalMinutes = HOURS_IN_DAY * 60;
   const dayStartMs = dayStart.getTime();
 
-  // Build groups of overlapping events
-  const columns: CalendarEvent[][] = [];
-
-  for (const event of events) {
-    const evStart = Math.max(0, (event.start.getTime() - dayStartMs) / 60000);
-    const evEnd = event.end
-      ? Math.min(totalMinutes, (event.end.getTime() - dayStartMs) / 60000)
-      : evStart + 60;
-
-    let placed = false;
-    for (const col of columns) {
-      const lastInCol = col[col.length - 1]!;
-      const lastEnd = lastInCol.end
-        ? (lastInCol.end.getTime() - dayStartMs) / 60000
-        : (lastInCol.start.getTime() - dayStartMs) / 60000 + 60;
-      if (evStart >= lastEnd) {
-        col.push(event);
-        placed = true;
-        break;
-      }
-    }
-    if (!placed) columns.push([event]);
+  // ── 1. Compute minute ranges ─────────────────────────────────────────────
+  interface Range {
+    event: CalendarEvent;
+    startMin: number;
+    endMin: number;   // always > startMin, min-duration 30 min
   }
 
-  // Assign position info
-  const result: PositionedEvent[] = [];
-  const totalColumns = columns.length;
+  const ranges: Range[] = events.map((event) => {
+    const startMin = Math.max(0, (event.start.getTime() - dayStartMs) / 60000);
+    const rawEnd = event.end
+      ? Math.min(totalMinutes, (event.end.getTime() - dayStartMs) / 60000)
+      : startMin + 60;
+    return { event, startMin, endMin: Math.max(rawEnd, startMin + 30) };
+  });
 
-  columns.forEach((col, colIdx) => {
-    col.forEach((event) => {
-      const evStartMin = Math.max(0, (event.start.getTime() - dayStartMs) / 60000);
-      const evEndMin = event.end
-        ? Math.min(totalMinutes, (event.end.getTime() - dayStartMs) / 60000)
-        : evStartMin + 60;
-      const durationMin = Math.max(30, evEndMin - evStartMin);
+  const overlaps = (a: Range, b: Range) => a.startMin < b.endMin && b.startMin < a.endMin;
+
+  // ── 2. Connected-component clustering ───────────────────────────────────
+  const n = ranges.length;
+  const visited = new Array<boolean>(n).fill(false);
+  const clusters: number[][] = []; // each entry = list of range indices in a cluster
+
+  for (let i = 0; i < n; i++) {
+    if (visited[i]) continue;
+    const cluster: number[] = [];
+    const queue: number[] = [i];
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      if (visited[cur]) continue;
+      visited[cur] = true;
+      cluster.push(cur);
+      for (let j = 0; j < n; j++) {
+        if (!visited[j] && overlaps(ranges[cur], ranges[j])) queue.push(j);
+      }
+    }
+    clusters.push(cluster);
+  }
+
+  // ── 3. Per-cluster greedy column assignment ──────────────────────────────
+  const colOf = new Map<number, number>(); // rangeIdx -> assigned column
+  const result: PositionedEvent[] = [];
+
+  for (const cluster of clusters) {
+    // Sort within cluster by start time for deterministic column assignment
+    cluster.sort((a, b) => ranges[a].startMin - ranges[b].startMin);
+
+    const cols: number[][] = []; // cols[c] = list of rangeIdx in column c
+    for (const idx of cluster) {
+      let placed = false;
+      for (let c = 0; c < cols.length; c++) {
+        // Column is available if NO event in it overlaps with this one
+        if (!cols[c].some((j) => overlaps(ranges[j], ranges[idx]))) {
+          cols[c].push(idx);
+          colOf.set(idx, c);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        colOf.set(idx, cols.length);
+        cols.push([idx]);
+      }
+    }
+
+    const rawColCount = cols.length;
+    const visibleColCount = Math.min(rawColCount, MAX_CONCURRENT_EVENTS);
+
+    // Count how many events are hidden (col index >= MAX_CONCURRENT_EVENTS)
+    const hiddenIndices = cluster.filter((idx) => (colOf.get(idx) ?? 0) >= MAX_CONCURRENT_EVENTS);
+    const hiddenCount = hiddenIndices.length;
+
+    // Find the "anchor" for the overflow badge: the last visible event by
+    // start time that sits in the rightmost visible column (col = visibleColCount - 1).
+    // If no event occupies the last visible col, pick any visible one.
+    let overflowAnchor = -1;
+    if (hiddenCount > 0) {
+      const lastVisibleCol = visibleColCount - 1;
+      const candidates = cluster
+        .filter((idx) => (colOf.get(idx) ?? 0) === lastVisibleCol)
+        .sort((a, b) => ranges[a].startMin - ranges[b].startMin);
+      overflowAnchor = candidates.length > 0 ? candidates[candidates.length - 1] : cluster[0];
+    }
+
+    // ── 4. Build PositionedEvent entries ──────────────────────────────────
+    for (const idx of cluster) {
+      const col = colOf.get(idx) ?? 0;
+      if (col >= MAX_CONCURRENT_EVENTS) continue; // hidden – skip rendering
+
+      const r = ranges[idx];
+      const durationMin = Math.max(30, r.endMin - r.startMin);
+
+      // When there are hidden events, leave a small visual "gap" on the right
+      // edge so users can see there's more (about 6 px worth in a typical grid).
+      const gapFraction = hiddenCount > 0 && col === visibleColCount - 1 ? 0.04 : 0;
+      const effectiveCols = visibleColCount;
 
       result.push({
-        event,
-        top: (evStartMin / totalMinutes) * 100,
+        event: r.event,
+        top: (r.startMin / totalMinutes) * 100,
         height: (durationMin / totalMinutes) * 100,
-        left: (colIdx / totalColumns) * 100,
-        width: (1 / totalColumns) * 100,
-        columnIndex: colIdx,
-        totalColumns,
+        left: (col / effectiveCols) * 100,
+        width: ((1 / effectiveCols) - gapFraction) * 100,
+        columnIndex: col,
+        totalColumns: visibleColCount,
+        overflowCount: idx === overflowAnchor ? hiddenCount : 0,
       });
-    });
-  });
+    }
+  }
 
   return result;
 }

@@ -61,7 +61,11 @@ import {
 import { FileUploadComponent, FileEntry, UploadProgress } from '../../shared/ui/file-upload/file-upload';
 import { BreadcrumbComponent, type BreadcrumbItem } from '../../shared/ui/breadcrumb/breadcrumb';
 import { TimelineComponent, type TimelineEvent } from '../../shared/ui/timeline/timeline';
-import { CalendarComponent, type CalendarEvent as CalendarEventType } from '../../shared/ui/calendar';
+import {
+  CalendarComponent,
+  type CalendarEvent as CalendarEventType,
+  type EventDropPayload,
+} from '../../shared/ui/calendar';
 import { Observable } from 'rxjs';
 
 @Component({
@@ -2654,46 +2658,126 @@ import { Observable } from 'rxjs';
            ═══════════════════════════════════════════════════ -->
       <section id="calendar" class="mb-16">
         <h2 class="section-title">Calendar</h2>
+
+        <!-- Feature badges -->
+        <div class="cal-feature-badges">
+          <span class="cal-badge cal-badge--dnd">
+            <svg lucideIcon="move" [size]="13" aria-hidden="true"></svg>
+            Drag &amp; Drop events
+          </span>
+          <span class="cal-badge cal-badge--a11y">
+            <svg lucideIcon="keyboard" [size]="13" aria-hidden="true"></svg>
+            Full keyboard navigation
+          </span>
+          <span class="cal-badge cal-badge--snap">
+            <svg lucideIcon="clock" [size]="13" aria-hidden="true"></svg>
+            15-min time snapping
+          </span>
+          <span class="cal-badge cal-badge--focus">
+            <svg lucideIcon="focus" [size]="13" aria-hidden="true"></svg>
+            Focus trap &amp; ARIA
+          </span>
+          <span class="cal-badge cal-badge--overlap">
+            <svg lucideIcon="layers" [size]="13" aria-hidden="true"></svg>
+            Smart overlap layout
+          </span>
+        </div>
+
         <div class="space-y-8">
 
-          <!-- Month View -->
+          <!-- Concurrent Events — overlap layout showcase -->
           <div>
-            <h3 class="subsection-label">Month View</h3>
-            <div style="height: 680px">
+            <h3 class="subsection-label">Concurrent Events — smart overlap layout (max 3 columns · +N overflow badge)</h3>
+            <div style="height: 600px">
               <app-calendar
-                [events]="calendarEvents"
-                initialView="month"
+                [events]="calendarDenseEvents()"
+                initialView="day"
                 [firstDayOfWeek]="1"
                 (eventClick)="onCalEventClick($event)"
                 (dateClick)="onCalDateClick($event)"
+                (eventDrop)="onCalDenseEventDrop($event)"
               />
             </div>
+            <p class="cal-overlap-hint">
+              <svg lucideIcon="info" [size]="13" aria-hidden="true"></svg>
+              Events are grouped by their actual overlap cluster. Up to 3 concurrent events display side-by-side;
+              additional events are hidden and indicated by a <strong>+N</strong> badge on the last visible block.
+            </p>
           </div>
 
-          <!-- Week View -->
+          <!-- Week view dense -->
           <div>
-            <h3 class="subsection-label">Week View</h3>
-            <div style="height: 640px">
+            <h3 class="subsection-label">Week view — concurrent events across multiple days</h3>
+            <div style="height: 600px">
               <app-calendar
-                [events]="calendarEvents"
+                [events]="calendarDenseEvents()"
                 initialView="week"
                 [firstDayOfWeek]="1"
                 (eventClick)="onCalEventClick($event)"
                 (dateClick)="onCalDateClick($event)"
+                (eventDrop)="onCalDenseEventDrop($event)"
+              />
+            </div>
+          </div>
+
+          <!-- Month View -->
+          <div>
+            <h3 class="subsection-label">Month View — drag events between days</h3>
+            <div style="height: 680px">
+              <app-calendar
+                [events]="calendarEvents()"
+                initialView="month"
+                [firstDayOfWeek]="1"
+                (eventClick)="onCalEventClick($event)"
+                (dateClick)="onCalDateClick($event)"
+                (eventDrop)="onCalEventDrop($event)"
+              />
+            </div>
+          </div>
+
+          <!-- Drop log -->
+          @if (calDropLog().length > 0) {
+            <div class="cal-drop-log">
+              <div class="cal-drop-log-header">
+                <svg lucideIcon="history" [size]="14" aria-hidden="true"></svg>
+                <span>Recent reschedules</span>
+              </div>
+              @for (entry of calDropLog(); track $index) {
+                <div class="cal-drop-log-row">
+                  <span class="cal-drop-log-title">{{ entry.title }}</span>
+                  <span class="cal-drop-log-arrow" aria-hidden="true">→</span>
+                  <span class="cal-drop-log-time">{{ entry.newTime }}</span>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Week View -->
+          <div>
+            <h3 class="subsection-label">Week View — drag between days &amp; snap to 15-min slots</h3>
+            <div style="height: 640px">
+              <app-calendar
+                [events]="calendarEvents()"
+                initialView="week"
+                [firstDayOfWeek]="1"
+                (eventClick)="onCalEventClick($event)"
+                (dateClick)="onCalDateClick($event)"
+                (eventDrop)="onCalEventDrop($event)"
               />
             </div>
           </div>
 
           <!-- Day View -->
           <div>
-            <h3 class="subsection-label">Day View</h3>
+            <h3 class="subsection-label">Day View — drag to reschedule within the day</h3>
             <div style="height: 600px">
               <app-calendar
-                [events]="calendarEvents"
+                [events]="calendarEvents()"
                 initialView="day"
                 [firstDayOfWeek]="1"
                 (eventClick)="onCalEventClick($event)"
                 (dateClick)="onCalDateClick($event)"
+                (eventDrop)="onCalEventDrop($event)"
               />
             </div>
           </div>
@@ -2703,7 +2787,7 @@ import { Observable } from 'rxjs';
             <h3 class="subsection-label">Schedule / Agenda View</h3>
             <div style="height: 520px">
               <app-calendar
-                [events]="calendarEvents"
+                [events]="calendarEvents()"
                 initialView="schedule"
                 [firstDayOfWeek]="1"
                 (eventClick)="onCalEventClick($event)"
@@ -2747,6 +2831,95 @@ import { Observable } from 'rxjs';
       text-transform: uppercase;
       letter-spacing: 0.06em;
       margin-bottom: 0.75rem;
+    }
+
+    /* ── Calendar Feature Badges ───────────────────────── */
+    .cal-feature-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+    }
+
+    .cal-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      font: var(--type-caption-1);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .cal-badge--dnd  { background: var(--color-primary-container); color: var(--color-primary); }
+    .cal-badge--a11y { background: var(--color-success-container); color: var(--color-success); }
+    .cal-badge--snap { background: var(--color-info-container);    color: var(--color-info); }
+    .cal-badge--focus{ background: color-mix(in oklch, var(--color-system-purple) 15%, transparent);
+                       color: var(--color-system-purple); }
+    .cal-badge--overlap { background: color-mix(in oklch, var(--color-system-pink) 14%, transparent);
+                          color: var(--color-system-pink); }
+
+    /* ── Overlap hint paragraph ─────────────────────────── */
+    .cal-overlap-hint {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: var(--fill-secondary);
+      font: var(--type-caption-1);
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .cal-overlap-hint svg {
+      flex-shrink: 0;
+      margin-top: 1px;
+      color: var(--color-info);
+    }
+
+    /* ── Calendar Drop Activity Log ─────────────────────── */
+    .cal-drop-log {
+      background: var(--surface-secondary);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      animation: fade-in 0.25s var(--ease-default);
+    }
+
+    .cal-drop-log-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--type-caption-1);
+      font-weight: var(--font-weight-semibold);
+      color: var(--text-secondary);
+      margin-bottom: 2px;
+    }
+
+    .cal-drop-log-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font: var(--type-caption-1);
+    }
+
+    .cal-drop-log-title {
+      font-weight: var(--font-weight-medium);
+      color: var(--text-primary);
+    }
+
+    .cal-drop-log-arrow {
+      color: var(--text-tertiary);
+    }
+
+    .cal-drop-log-time {
+      color: var(--color-primary);
+      font-weight: var(--font-weight-medium);
     }
 
     /* ── Carousel Demo Slides ──────────────────────────── */
@@ -4050,15 +4223,14 @@ export class ShowcaseComponent {
   ];
 
   // ── Calendar demo data ────────────────────────────────────────────────────
-  protected readonly calendarEvents: CalendarEventType[] = (() => {
+  protected readonly calendarEvents = signal<CalendarEventType[]>((() => {
     const today = new Date();
     const y = today.getFullYear();
     const m = today.getMonth();
     const d = today.getDate();
 
     const dt = (dayOffset: number, h: number, min = 0) => {
-      const date = new Date(y, m, d + dayOffset, h, min, 0, 0);
-      return date;
+      return new Date(y, m, d + dayOffset, h, min, 0, 0);
     };
 
     return [
@@ -4239,7 +4411,54 @@ export class ShowcaseComponent {
         subtitle: 'Convention Center',
       },
     ];
-  })();
+  })());
+
+  protected readonly calDropLog = signal<{ title: string; newTime: string }[]>([]);
+
+  // ── Dense/concurrent events demo data ────────────────────────────────────
+  protected readonly calendarDenseEvents = signal<CalendarEventType[]>((() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const d = today.getDate();
+
+    const dt = (dayOffset: number, h: number, min = 0) =>
+      new Date(y, m, d + dayOffset, h, min, 0, 0);
+
+    return [
+      // ── TODAY: 5 overlapping events 9–11 AM (→ 3 visible + "+2") ────────
+      { id: 'dn-1',  title: 'Standup',           start: dt(0, 9,  0),  end: dt(0, 9, 30),  color: 'primary'  as const, subtitle: 'Google Meet' },
+      { id: 'dn-2',  title: 'Design Sync',        start: dt(0, 9, 15),  end: dt(0, 10, 30), color: 'purple'   as const, subtitle: 'Figma Review' },
+      { id: 'dn-3',  title: 'Code Review',        start: dt(0, 9, 30),  end: dt(0, 10, 0),  color: 'teal'     as const },
+      { id: 'dn-4',  title: 'Security Briefing',  start: dt(0, 9, 45),  end: dt(0, 10, 30), color: 'error'    as const, subtitle: 'All-hands' },
+      { id: 'dn-5',  title: 'Sprint Retro',       start: dt(0, 10, 0),  end: dt(0, 11, 0),  color: 'warning'  as const },
+
+      // ── TODAY: 2 overlapping events 2–4 PM (→ side-by-side) ──────────────
+      { id: 'dn-6',  title: 'Arch Review',        start: dt(0, 14, 0),  end: dt(0, 15, 30), color: 'info'     as const, subtitle: 'Zoom' },
+      { id: 'dn-7',  title: '1:1 w/ Lead',        start: dt(0, 14, 30), end: dt(0, 15, 15), color: 'pink'     as const, subtitle: 'Office' },
+
+      // ── TODAY: isolated event 5 PM ────────────────────────────────────────
+      { id: 'dn-8',  title: 'End of Day Wrap',    start: dt(0, 17, 0),  end: dt(0, 17, 30), color: 'success'  as const },
+
+      // ── TOMORROW: 4 overlapping events 10 AM–12 PM (→ 3 + "+1") ─────────
+      { id: 'dn-9',  title: 'Product Demo',       start: dt(1, 10, 0),  end: dt(1, 11, 30), color: 'primary'  as const, subtitle: 'Client Call' },
+      { id: 'dn-10', title: 'UX Workshop',        start: dt(1, 10, 15), end: dt(1, 12, 0),  color: 'purple'   as const, subtitle: 'Design Studio' },
+      { id: 'dn-11', title: 'Eng All-Hands',      start: dt(1, 10, 30), end: dt(1, 11, 0),  color: 'warning'  as const },
+      { id: 'dn-12', title: 'Marketing Sync',     start: dt(1, 10, 45), end: dt(1, 11, 30), color: 'teal'     as const },
+
+      // ── TOMORROW: non-overlapping after-noon event ────────────────────────
+      { id: 'dn-13', title: 'Deep Work',          start: dt(1, 14, 0),  end: dt(1, 16, 30), color: 'info'     as const, subtitle: 'Focus block' },
+
+      // ── DAY+2: 3 exactly concurrent (→ each 33% width) ───────────────────
+      { id: 'dn-14', title: 'Standup',            start: dt(2, 9, 0),   end: dt(2, 9, 30),  color: 'primary'  as const },
+      { id: 'dn-15', title: 'QA Review',          start: dt(2, 9, 0),   end: dt(2, 9, 30),  color: 'error'    as const },
+      { id: 'dn-16', title: 'Mentoring',          start: dt(2, 9, 0),   end: dt(2, 9, 30),  color: 'pink'     as const },
+
+      // ── DAY+2: 2 events 2 PM (side-by-side) ──────────────────────────────
+      { id: 'dn-17', title: 'Roadmap Review',     start: dt(2, 14, 0),  end: dt(2, 15, 0),  color: 'success'  as const },
+      { id: 'dn-18', title: 'Team Social',        start: dt(2, 14, 30), end: dt(2, 16, 0),  color: 'teal'     as const, subtitle: 'Sky Lounge' },
+    ];
+  })());
 
   protected onCalEventClick(payload: { event: CalendarEventType; nativeEvent: MouseEvent }): void {
     this.toastService.info(`📅 ${payload.event.title}`);
@@ -4250,6 +4469,47 @@ export class ShowcaseComponent {
       ? payload.date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
       : payload.date.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     this.toastService.success(`Create event: ${time}`);
+  }
+
+  protected onCalEventDrop(payload: EventDropPayload): void {
+    // Update the events signal so the change persists across all calendar views
+    this.calendarEvents.update((events) =>
+      events.map((e) =>
+        e.id === payload.event.id
+          ? { ...e, start: payload.newStart, end: payload.newEnd }
+          : e,
+      ),
+    );
+
+    // Add to drop log (keep last 5)
+    const newTime = payload.newStart.toLocaleString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    this.calDropLog.update((log) => [
+      { title: payload.event.title, newTime },
+      ...log,
+    ].slice(0, 5));
+
+    this.toastService.success(`✅ Rescheduled "${payload.event.title}" → ${newTime}`);
+  }
+
+  protected onCalDenseEventDrop(payload: EventDropPayload): void {
+    this.calendarDenseEvents.update((events) =>
+      events.map((e) =>
+        e.id === payload.event.id
+          ? { ...e, start: payload.newStart, end: payload.newEnd }
+          : e,
+      ),
+    );
+    const newTime = payload.newStart.toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit',
+    });
+    this.toastService.success(`✅ Rescheduled "${payload.event.title}" → ${newTime}`);
   }
 }
 

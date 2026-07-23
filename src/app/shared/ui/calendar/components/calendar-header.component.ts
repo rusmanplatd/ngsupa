@@ -1,4 +1,4 @@
-import { Component, inject, output } from '@angular/core';
+import { Component, inject, ElementRef, ViewChildren, QueryList } from '@angular/core';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { CalendarService } from '../calendar.service';
 import { CalendarView } from '../calendar.models';
@@ -55,16 +55,19 @@ interface ViewOption {
       {{ calendar.periodTitle() }}
     </h2>
 
-    <!-- Right: View switcher (segmented control style) -->
+    <!-- Right: View switcher (segmented control / radiogroup) -->
     <div
       class="cal-view-switcher"
       role="radiogroup"
       aria-label="Calendar view"
+      (keydown)="onSwitcherKeydown($event)"
     >
-      @for (opt of viewOptions; track opt.value) {
+      @for (opt of viewOptions; track opt.value; let i = $index) {
         <button
+          #viewBtn
           type="button"
           role="radio"
+          [id]="'cal-view-btn-' + opt.value"
           [attr.aria-checked]="calendar.view() === opt.value"
           [attr.tabindex]="calendar.view() === opt.value ? 0 : -1"
           class="cal-view-btn"
@@ -115,6 +118,11 @@ interface ViewOption {
       border-color: var(--color-primary);
     }
 
+    .cal-header-btn:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
     .cal-header-icon-btn {
       display: inline-flex;
       align-items: center;
@@ -133,6 +141,11 @@ interface ViewOption {
     .cal-header-icon-btn:hover {
       background: var(--fill-secondary);
       color: var(--text-primary);
+    }
+
+    .cal-header-icon-btn:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
     }
 
     .cal-view-switcher {
@@ -161,6 +174,11 @@ interface ViewOption {
 
     .cal-view-btn:hover {
       color: var(--text-primary);
+    }
+
+    .cal-view-btn:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 1px;
     }
 
     .cal-view-btn--active {
@@ -195,7 +213,32 @@ export class CalendarHeaderComponent {
     { value: 'schedule', label: 'Schedule' },
   ];
 
+  @ViewChildren('viewBtn') private viewBtns!: QueryList<ElementRef<HTMLButtonElement>>;
+
   protected switchView(view: CalendarView): void {
     this.calendar.setView(view);
+  }
+
+  /** WAI-ARIA radiogroup keyboard pattern: ArrowLeft/Right moves between options */
+  protected onSwitcherKeydown(event: KeyboardEvent): void {
+    const currentIndex = this.viewOptions.findIndex((o) => o.value === this.calendar.view());
+    let nextIndex = currentIndex;
+
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      nextIndex = (currentIndex + 1) % this.viewOptions.length;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      nextIndex = (currentIndex - 1 + this.viewOptions.length) % this.viewOptions.length;
+    } else {
+      return;
+    }
+
+    const nextView = this.viewOptions[nextIndex].value;
+    this.calendar.setView(nextView);
+
+    // Move focus to the newly selected button
+    const btns = this.viewBtns.toArray();
+    btns[nextIndex]?.nativeElement.focus();
   }
 }

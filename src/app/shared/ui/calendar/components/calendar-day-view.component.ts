@@ -6,12 +6,29 @@ import {
   OnInit,
   OnDestroy,
   NgZone,
+  ViewChild,
+  ElementRef,
 } from '@angular/core';
+import {
+  CdkDrag,
+  CdkDropList,
+  CdkDragDrop,
+  CdkDragPreview,
+} from '@angular/cdk/drag-drop';
 import { CalendarService, formatEventTime, isSameDay } from '../calendar.service';
-import { CalendarEvent, EventClickPayload, DateClickPayload, PositionedEvent, TIME_GRID_HEIGHT_PER_HOUR, HOURS_IN_DAY } from '../calendar.models';
+import {
+  CalendarEvent,
+  EventClickPayload,
+  DateClickPayload,
+  EventDropPayload,
+  PositionedEvent,
+  TIME_GRID_HEIGHT_PER_HOUR,
+  HOURS_IN_DAY,
+} from '../calendar.models';
 
 @Component({
   selector: 'app-calendar-day-view',
+  imports: [CdkDrag, CdkDropList, CdkDragPreview],
   host: { class: 'flex flex-col overflow-hidden' },
   template: `
     <!-- All-day events -->
@@ -49,9 +66,17 @@ import { CalendarEvent, EventClickPayload, DateClickPayload, PositionedEvent, TI
 
         <!-- Single day column -->
         <div
+          #dayColEl
+          cdkDropList
+          [cdkDropListData]="calendar.currentDate()"
+          (cdkDropListDropped)="onTimedEventDrop($event)"
+          (cdkDropListEntered)="dropActive.set(true)"
+          (cdkDropListExited)="dropActive.set(false)"
           class="cal-day-col"
-          (click)="onColClick($event)"
+          [class.cal-day-col--drop-active]="dropActive()"
+          role="region"
           [attr.aria-label]="calendar.currentDate().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })"
+          (click)="onColClick($event)"
         >
           @for (slot of calendar.timeSlots(); track slot.hour) {
             <div class="cal-hour-line" [style.top.px]="slot.hour * cellHeight" aria-hidden="true"></div>
@@ -61,13 +86,17 @@ import { CalendarEvent, EventClickPayload, DateClickPayload, PositionedEvent, TI
           @for (pe of calendar.dayPositionedEvents(); track pe.event.id) {
             <button
               type="button"
+              cdkDrag
+              [cdkDragData]="pe"
+              (cdkDragStarted)="onDragStart()"
+              (cdkDragEnded)="onDragEnd()"
               class="cal-timed-event"
               [class]="'cal-event--' + (pe.event.color ?? 'primary')"
               [style.top.%]="pe.top"
               [style.height.%]="pe.height"
               [style.left.%]="pe.left + 0.5"
               [style.width.%]="pe.width - 1"
-              [attr.aria-label]="pe.event.title + ', ' + formatTime(pe.event.start)"
+              [attr.aria-label]="pe.event.title + ', ' + formatTime(pe.event.start) + (pe.event.end ? ' to ' + formatTime(pe.event.end) : '') + (pe.overflowCount > 0 ? ', and ' + pe.overflowCount + ' more events' : '')"
               (click)="onEventClick($event, pe.event)"
             >
               <div class="cal-timed-event-inner">
@@ -80,6 +109,19 @@ import { CalendarEvent, EventClickPayload, DateClickPayload, PositionedEvent, TI
                   @if (pe.event.end) { — {{ formatTime(pe.event.end) }} }
                 </span>
               </div>
+
+              <!-- Overflow badge -->
+              @if (pe.overflowCount > 0) {
+                <span class="cal-overflow-badge" aria-hidden="true">+{{ pe.overflowCount }}</span>
+              }
+
+              <!-- Drag preview -->
+              <ng-template cdkDragPreview>
+                <div class="cal-drag-preview-block" [class]="'cal-event--' + (pe.event.color ?? 'primary')">
+                  <span class="cal-timed-event-title">{{ pe.event.title }}</span>
+                  <span class="cal-timed-event-time">{{ formatTime(pe.event.start) }}</span>
+                </div>
+              </ng-template>
             </button>
           }
         </div>
@@ -137,6 +179,11 @@ import { CalendarEvent, EventClickPayload, DateClickPayload, PositionedEvent, TI
 
     .cal-week-allday-pill:hover { opacity: 0.8; }
 
+    .cal-week-allday-pill:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 1px;
+    }
+
     /* Scroll area */
     .cal-day-scroll-area {
       flex: 1;
@@ -176,6 +223,11 @@ import { CalendarEvent, EventClickPayload, DateClickPayload, PositionedEvent, TI
       position: relative;
       cursor: pointer;
       background: color-mix(in oklch, var(--color-primary) 2%, transparent);
+      transition: background var(--duration-fast);
+    }
+
+    .cal-day-col--drop-active {
+      background: color-mix(in oklch, var(--color-primary) 8%, transparent);
     }
 
     .cal-hour-line {
@@ -202,7 +254,7 @@ import { CalendarEvent, EventClickPayload, DateClickPayload, PositionedEvent, TI
       border-radius: var(--radius-md);
       padding: 6px 10px;
       border: none;
-      cursor: pointer;
+      cursor: grab;
       text-align: left;
       overflow: hidden;
       border-left: 4px solid currentColor;
@@ -212,10 +264,19 @@ import { CalendarEvent, EventClickPayload, DateClickPayload, PositionedEvent, TI
       min-height: 24px;
     }
 
+    .cal-timed-event:active {
+      cursor: grabbing;
+    }
+
     .cal-timed-event:hover {
       opacity: 0.88;
       transform: scale(1.005);
       box-shadow: var(--shadow-md);
+    }
+
+    .cal-timed-event:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
     }
 
     .cal-timed-event-inner {
@@ -258,6 +319,49 @@ import { CalendarEvent, EventClickPayload, DateClickPayload, PositionedEvent, TI
     .cal-event--pink    { background: var(--color-system-pink-light);   color: var(--color-system-pink); }
     .cal-event--teal    { background: var(--color-system-teal-light);   color: var(--color-system-teal); }
 
+    /* ── CDK drag states ── */
+    .cdk-drag-placeholder {
+      opacity: 0.2;
+      border: 2px dashed currentColor !important;
+      border-radius: var(--radius-md);
+      background: var(--fill-secondary) !important;
+    }
+
+    .cdk-drag-animating {
+      transition: transform 200ms var(--ease-spring);
+    }
+
+    /* ── Drag preview block ── */
+    /* ── Overflow badge ── */
+    .cal-overflow-badge {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      background: oklch(from currentColor l c h / 0.18);
+      color: inherit;
+      border-radius: var(--radius-full);
+      font-size: 0.6rem;
+      font-weight: var(--font-weight-semibold);
+      padding: 1px 5px;
+      line-height: 1.4;
+      letter-spacing: 0.02em;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .cal-drag-preview-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 6px 10px;
+      border-radius: var(--radius-md);
+      border-left: 4px solid currentColor;
+      box-shadow: var(--shadow-xl);
+      opacity: 0.92;
+      min-width: 120px;
+      pointer-events: none;
+    }
+
     /* Current time indicator */
     .cal-current-time-line {
       position: absolute;
@@ -287,14 +391,19 @@ export class CalendarDayViewComponent implements OnInit, OnDestroy {
 
   readonly eventClick = output<EventClickPayload>();
   readonly dateClick = output<DateClickPayload>();
+  readonly eventDrop = output<EventDropPayload>();
 
   protected readonly cellHeight = TIME_GRID_HEIGHT_PER_HOUR;
   protected readonly gridHeight = HOURS_IN_DAY * TIME_GRID_HEIGHT_PER_HOUR;
 
   protected readonly currentTimeTop = signal(0);
   protected readonly showCurrentTimeLine = signal(false);
+  protected readonly dropActive = signal(false);
 
+  private isDragging = false;
   private timerId: ReturnType<typeof setInterval> | null = null;
+
+  @ViewChild('dayColEl') private dayColEl!: ElementRef<HTMLDivElement>;
 
   ngOnInit(): void {
     this.updateCurrentTime();
@@ -323,10 +432,12 @@ export class CalendarDayViewComponent implements OnInit, OnDestroy {
 
   protected onEventClick(nativeEvent: MouseEvent, event: CalendarEvent): void {
     nativeEvent.stopPropagation();
+    if (this.isDragging) return;
     this.eventClick.emit({ event, nativeEvent });
   }
 
   protected onColClick(nativeEvent: MouseEvent): void {
+    if (this.isDragging) return;
     const target = nativeEvent.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
     const relY = nativeEvent.clientY - rect.top;
@@ -336,5 +447,51 @@ export class CalendarDayViewComponent implements OnInit, OnDestroy {
     const clickedDate = new Date(this.calendar.currentDate());
     clickedDate.setHours(hours, minutes, 0, 0);
     this.dateClick.emit({ date: clickedDate, allDay: false, nativeEvent });
+  }
+
+  // ── Drag & Drop ──────────────────────────────────────────────────────────
+  protected onDragStart(): void {
+    this.isDragging = true;
+  }
+
+  protected onDragEnd(): void {
+    setTimeout(() => {
+      this.isDragging = false;
+      this.dropActive.set(false);
+    }, 0);
+  }
+
+  protected onTimedEventDrop(drop: CdkDragDrop<Date>): void {
+    const pe: PositionedEvent = drop.item.data;
+
+    const colEl = this.dayColEl?.nativeElement ?? drop.container.element.nativeElement;
+    const colRect = colEl.getBoundingClientRect();
+
+    const pointerY = drop.dropPoint.y - colRect.top;
+    const rawMinutes = Math.max(0, (pointerY / this.gridHeight) * HOURS_IN_DAY * 60);
+    const snappedMinutes = Math.round(rawMinutes / 15) * 15;
+    const clampedMinutes = Math.min(snappedMinutes, HOURS_IN_DAY * 60 - 15);
+
+    const newStart = new Date(this.calendar.currentDate());
+    newStart.setHours(
+      Math.floor(clampedMinutes / 60),
+      clampedMinutes % 60,
+      0,
+      0,
+    );
+
+    const duration = pe.event.end
+      ? pe.event.end.getTime() - pe.event.start.getTime()
+      : 60 * 60 * 1000;
+
+    const newEnd = new Date(newStart.getTime() + duration);
+
+    this.eventDrop.emit({
+      event: pe.event,
+      newStart,
+      newEnd,
+      newAllDay: false,
+      previousStart: pe.event.start,
+    });
   }
 }

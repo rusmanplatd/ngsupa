@@ -8,6 +8,7 @@ export type {
   EventClickPayload,
   DateClickPayload,
   ViewChangePayload,
+  EventDropPayload,
   CalendarDay,
   TimeSlot,
   PositionedEvent,

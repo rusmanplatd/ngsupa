@@ -19,6 +19,7 @@ import {
   EventClickPayload,
   DateClickPayload,
   ViewChangePayload,
+  EventDropPayload,
 } from './calendar.models';
 
 @Component({
@@ -49,6 +50,7 @@ import {
               <app-calendar-month-view
                 (eventClick)="eventClick.emit($event)"
                 (dateClick)="dateClick.emit($event)"
+                (eventDrop)="eventDrop.emit($event)"
               />
             </div>
           }
@@ -57,6 +59,7 @@ import {
               <app-calendar-week-view
                 (eventClick)="eventClick.emit($event)"
                 (dateClick)="dateClick.emit($event)"
+                (eventDrop)="eventDrop.emit($event)"
               />
             </div>
           }
@@ -65,6 +68,7 @@ import {
               <app-calendar-day-view
                 (eventClick)="eventClick.emit($event)"
                 (dateClick)="dateClick.emit($event)"
+                (eventDrop)="eventDrop.emit($event)"
               />
             </div>
           }
@@ -135,6 +139,7 @@ export class CalendarComponent implements OnInit {
   readonly eventClick = output<EventClickPayload>();
   readonly dateClick = output<DateClickPayload>();
   readonly viewChange = output<ViewChangePayload>();
+  readonly eventDrop = output<EventDropPayload>();
 
   ngOnInit(): void {
     // Apply initial config

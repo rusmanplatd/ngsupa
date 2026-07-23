@@ -60,8 +60,10 @@ export interface PositionedEvent {
   width: number;
   /** column index in the day column (for overlap grouping) */
   columnIndex: number;
-  /** total concurrent columns in the overlap group */
+  /** total visible concurrent columns in the overlap group (capped at MAX_CONCURRENT_EVENTS) */
   totalColumns: number;
+  /** Number of events hidden from view due to the column cap; non-zero only on the last visible event of a group */
+  overflowCount: number;
 }
 
 /** Payload emitted when the user clicks an event */
@@ -85,7 +87,18 @@ export interface ViewChangePayload {
   end: Date;
 }
 
+/** Payload emitted when the user drags an event to a new time/date */
+export interface EventDropPayload {
+  event: CalendarEvent;
+  newStart: Date;
+  newEnd: Date | undefined;
+  newAllDay: boolean;
+  previousStart: Date;
+}
+
 export const MAX_VISIBLE_EVENTS_MONTH = 3;
+/** Maximum number of overlapping timed events shown side-by-side in week/day grids */
+export const MAX_CONCURRENT_EVENTS = 3;
 export const HOURS_IN_DAY = 24;
 export const DAY_START_HOUR = 0;
 export const TIME_GRID_HEIGHT_PER_HOUR = 64; // px per hour in week/day view
