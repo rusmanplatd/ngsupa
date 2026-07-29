@@ -5,6 +5,7 @@ import {
   signal,
   OnInit,
   OnDestroy,
+  AfterViewInit,
   NgZone,
   ViewChild,
   ElementRef,
@@ -15,16 +16,24 @@ import {
   CdkDragDrop,
   CdkDragPreview,
 } from '@angular/cdk/drag-drop';
-import { CalendarService, formatEventTime, isSameDay } from '../calendar.service';
+import { CalendarService, formatEventTime, isSameDay, startOfDay } from '../calendar.service';
 import {
   CalendarEvent,
   EventClickPayload,
   DateClickPayload,
   EventDropPayload,
+  EventResizePayload,
+  TimeRangeSelectPayload,
   PositionedEvent,
   TIME_GRID_HEIGHT_PER_HOUR,
   HOURS_IN_DAY,
 } from '../calendar.models';
+
+// Internal state for drag-to-create selection
+interface DragSelection {
+  startMin: number; // minutes from midnight
+  endMin: number;   // minutes from midnight
+}
 
 @Component({
   selector: 'app-calendar-day-view',
@@ -52,7 +61,7 @@ import {
     }
 
     <!-- Scrollable time grid -->
-    <div class="cal-day-scroll-area">
+    <div class="cal-day-scroll-area" #scrollArea>
       <div class="cal-day-time-grid" [style.height.px]="gridHeight">
 
         <!-- Time gutter -->
@@ -75,12 +84,25 @@ import {
           class="cal-day-col"
           [class.cal-day-col--drop-active]="dropActive()"
           role="region"
-          [attr.aria-label]="calendar.currentDate().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })"
+          [attr.aria-label]="formatDayFull(calendar.currentDate())"
+          (pointerdown)="onColMouseDown($event)"
           (click)="onColClick($event)"
         >
           @for (slot of calendar.timeSlots(); track slot.hour) {
             <div class="cal-hour-line" [style.top.px]="slot.hour * cellHeight" aria-hidden="true"></div>
             <div class="cal-half-hour-line" [style.top.px]="slot.hour * cellHeight + cellHeight / 2" aria-hidden="true"></div>
+          }
+
+          <!-- Drag-to-create selection ghost -->
+          @if (dragSel()) {
+            <div
+              class="cal-selection-ghost"
+              aria-hidden="true"
+              [style.top.%]="selTop()"
+              [style.height.%]="selHeight()"
+            >
+              <span class="cal-selection-time-label">{{ selTimeLabel() }}</span>
+            </div>
           }
 
           @for (pe of calendar.dayPositionedEvents(); track pe.event.id) {
@@ -114,6 +136,13 @@ import {
               @if (pe.overflowCount > 0) {
                 <span class="cal-overflow-badge" aria-hidden="true">+{{ pe.overflowCount }}</span>
               }
+
+              <!-- Resize handle -->
+              <span
+                class="cal-resize-handle"
+                aria-hidden="true"
+                (mousedown)="onResizeStart($event, pe)"
+              ></span>
 
               <!-- Drag preview -->
               <ng-template cdkDragPreview>
@@ -221,9 +250,10 @@ import {
     .cal-day-col {
       flex: 1;
       position: relative;
-      cursor: pointer;
+      cursor: crosshair;
       background: color-mix(in oklch, var(--color-primary) 2%, transparent);
       transition: background var(--duration-fast);
+      user-select: none;
     }
 
     .cal-day-col--drop-active {
@@ -246,6 +276,28 @@ import {
       height: 1px;
       background: var(--separator);
       pointer-events: none;
+    }
+
+    /* ── Drag-to-create selection ghost ── */
+    .cal-selection-ghost {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      border-radius: var(--radius-sm);
+      background: color-mix(in oklch, var(--color-primary) 18%, transparent);
+      border: 2px dashed var(--color-primary);
+      pointer-events: none;
+      z-index: 2;
+      display: flex;
+      align-items: flex-start;
+      padding: 4px 8px;
+    }
+
+    .cal-selection-time-label {
+      font: var(--type-caption-1);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-primary);
+      white-space: nowrap;
     }
 
     /* Timed event block */
@@ -309,6 +361,33 @@ import {
       opacity: 0.75;
     }
 
+    /* ── Resize handle ── */
+    .cal-resize-handle {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 10px;
+      cursor: ns-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cal-resize-handle::after {
+      content: '';
+      display: block;
+      width: 28px;
+      height: 2px;
+      border-radius: 1px;
+      background: currentColor;
+      opacity: 0.35;
+    }
+
+    .cal-timed-event:hover .cal-resize-handle::after {
+      opacity: 0.65;
+    }
+
     /* Event color variants */
     .cal-event--primary { background: var(--color-primary-container); color: var(--color-primary); }
     .cal-event--success { background: var(--color-success-container); color: var(--color-success); }
@@ -331,7 +410,6 @@ import {
       transition: transform 200ms var(--ease-spring);
     }
 
-    /* ── Drag preview block ── */
     /* ── Overflow badge ── */
     .cal-overflow-badge {
       position: absolute;
@@ -385,13 +463,15 @@ import {
     }
   `,
 })
-export class CalendarDayViewComponent implements OnInit, OnDestroy {
+export class CalendarDayViewComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly calendar = inject(CalendarService);
   private readonly zone = inject(NgZone);
 
   readonly eventClick = output<EventClickPayload>();
   readonly dateClick = output<DateClickPayload>();
   readonly eventDrop = output<EventDropPayload>();
+  readonly eventResize = output<EventResizePayload>();
+  readonly timeRangeSelect = output<TimeRangeSelectPayload>();
 
   protected readonly cellHeight = TIME_GRID_HEIGHT_PER_HOUR;
   protected readonly gridHeight = HOURS_IN_DAY * TIME_GRID_HEIGHT_PER_HOUR;
@@ -400,10 +480,48 @@ export class CalendarDayViewComponent implements OnInit, OnDestroy {
   protected readonly showCurrentTimeLine = signal(false);
   protected readonly dropActive = signal(false);
 
+  // ── Drag-to-create state ──────────────────────────────────────────────────
+  protected readonly dragSel = signal<DragSelection | null>(null);
+
+  protected readonly selTop = () => {
+    const s = this.dragSel();
+    if (!s) return 0;
+    const min = Math.min(s.startMin, s.endMin);
+    return (min / (HOURS_IN_DAY * 60)) * 100;
+  };
+
+  protected readonly selHeight = () => {
+    const s = this.dragSel();
+    if (!s) return 0;
+    const duration = Math.abs(s.endMin - s.startMin);
+    return (duration / (HOURS_IN_DAY * 60)) * 100;
+  };
+
+  protected readonly selTimeLabel = () => {
+    const s = this.dragSel();
+    if (!s) return '';
+    const startMin = Math.min(s.startMin, s.endMin);
+    const endMin = Math.max(s.startMin, s.endMin);
+    return `${this.minToTimeLabel(startMin)} – ${this.minToTimeLabel(endMin)}`;
+  };
+
+  // ── Resize state ──────────────────────────────────────────────────────────
+  private resizingEvent: PositionedEvent | null = null;
+  private resizeStartY = 0;
+  private resizeOriginalEndMin = 0;
+
   private isDragging = false;
+  private isSelecting = false;
+  private isResizing = false;
   private timerId: ReturnType<typeof setInterval> | null = null;
 
+  private selMoveListener: ((e: MouseEvent) => void) | null = null;
+  private selUpListener: ((e: MouseEvent) => void) | null = null;
+  private resizeMoveListener: ((e: MouseEvent) => void) | null = null;
+  private resizeUpListener: ((e: MouseEvent) => void) | null = null;
+
   @ViewChild('dayColEl') private dayColEl!: ElementRef<HTMLDivElement>;
+  @ViewChild('scrollArea') private scrollAreaEl!: ElementRef<HTMLDivElement>;
 
   ngOnInit(): void {
     this.updateCurrentTime();
@@ -414,8 +532,22 @@ export class CalendarDayViewComponent implements OnInit, OnDestroy {
     });
   }
 
+  ngAfterViewInit(): void {
+    // Feature 5: Auto-scroll to current time
+    this.scrollToCurrentTime();
+  }
+
   ngOnDestroy(): void {
     if (this.timerId !== null) clearInterval(this.timerId);
+    this.cleanupSelectionListeners();
+    this.cleanupResizeListeners();
+  }
+
+  private scrollToCurrentTime(): void {
+    const el = this.scrollAreaEl?.nativeElement;
+    if (!el) return;
+    const top = this.currentTimeTop() - el.clientHeight / 2 + 60;
+    el.scrollTop = Math.max(0, top);
   }
 
   private updateCurrentTime(): void {
@@ -426,18 +558,26 @@ export class CalendarDayViewComponent implements OnInit, OnDestroy {
     this.showCurrentTimeLine.set(isSameDay(this.calendar.currentDate(), now));
   }
 
+  protected formatDayFull(day: Date): string {
+    return day.toLocaleDateString(this.calendar.locale(), {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
+  }
+
   protected formatTime(d: Date): string {
-    return formatEventTime(d);
+    return formatEventTime(d, this.calendar.locale());
   }
 
   protected onEventClick(nativeEvent: MouseEvent, event: CalendarEvent): void {
     nativeEvent.stopPropagation();
-    if (this.isDragging) return;
+    if (this.isDragging || this.isSelecting || this.isResizing) return;
     this.eventClick.emit({ event, nativeEvent });
   }
 
   protected onColClick(nativeEvent: MouseEvent): void {
-    if (this.isDragging) return;
+    if (this.isDragging || this.isSelecting || this.isResizing) return;
     const target = nativeEvent.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
     const relY = nativeEvent.clientY - rect.top;
@@ -447,6 +587,150 @@ export class CalendarDayViewComponent implements OnInit, OnDestroy {
     const clickedDate = new Date(this.calendar.currentDate());
     clickedDate.setHours(hours, minutes, 0, 0);
     this.dateClick.emit({ date: clickedDate, allDay: false, nativeEvent });
+  }
+
+  // ── Drag-to-create ────────────────────────────────────────────────────────
+
+  protected onColMouseDown(nativeEvent: PointerEvent): void {
+    if (nativeEvent.button !== 0) return;
+    // Ignore if mousedown landed on a timed event or its resize handle
+    const target = nativeEvent.target as HTMLElement;
+    if (target.closest('.cal-timed-event')) return;
+
+    const colEl = this.dayColEl?.nativeElement;
+    if (!colEl) return;
+
+    nativeEvent.preventDefault();
+
+    const rect = colEl.getBoundingClientRect();
+    const startMin = this.snapMinutes(
+      Math.max(0, ((nativeEvent.clientY - rect.top) / this.gridHeight) * HOURS_IN_DAY * 60),
+    );
+
+    this.isSelecting = true;
+    this.dragSel.set({ startMin, endMin: startMin + 30 });
+
+    const currentDate = this.calendar.currentDate();
+
+    // Use pointer capture so pointerup is guaranteed to reach us even if the
+    // pointer leaves the element or CDK intercepts document-level events.
+    colEl.setPointerCapture(nativeEvent.pointerId);
+
+    const onPointerMove = (e: PointerEvent) => {
+      const currentRect = colEl.getBoundingClientRect();
+      const endMin = this.snapMinutes(
+        Math.min(
+          HOURS_IN_DAY * 60,
+          Math.max(0, ((e.clientY - currentRect.top) / this.gridHeight) * HOURS_IN_DAY * 60),
+        ),
+      );
+      this.zone.run(() => {
+        this.dragSel.update((s) => (s ? { ...s, endMin: Math.max(endMin, startMin + 15) } : s));
+      });
+    };
+
+    const onPointerUp = () => {
+      colEl.releasePointerCapture(nativeEvent.pointerId);
+      colEl.removeEventListener('pointermove', onPointerMove);
+      colEl.removeEventListener('pointerup', onPointerUp);
+      colEl.removeEventListener('pointercancel', onPointerUp);
+
+      this.zone.run(() => {
+        const sel = this.dragSel();
+        if (sel) {
+          const startMinFinal = Math.min(sel.startMin, sel.endMin);
+          const endMinFinal = Math.max(sel.startMin, sel.endMin);
+          const selStart = new Date(currentDate);
+          selStart.setHours(Math.floor(startMinFinal / 60), startMinFinal % 60, 0, 0);
+          const selEnd = new Date(currentDate);
+          selEnd.setHours(Math.floor(endMinFinal / 60), endMinFinal % 60, 0, 0);
+
+          if (endMinFinal - startMinFinal >= 15) {
+            this.timeRangeSelect.emit({ start: selStart, end: selEnd, allDay: false });
+          }
+        }
+        this.dragSel.set(null);
+        setTimeout(() => { this.isSelecting = false; }, 0);
+      });
+    };
+
+    colEl.addEventListener('pointermove', onPointerMove);
+    colEl.addEventListener('pointerup', onPointerUp, { once: true });
+    colEl.addEventListener('pointercancel', onPointerUp, { once: true });
+  }
+
+  private cleanupSelectionListeners(): void {
+    if (this.selMoveListener) {
+      document.removeEventListener('mousemove', this.selMoveListener);
+      this.selMoveListener = null;
+    }
+    if (this.selUpListener) {
+      document.removeEventListener('mouseup', this.selUpListener);
+      this.selUpListener = null;
+    }
+  }
+
+
+  // ── Event Resizing ────────────────────────────────────────────────────────
+
+  protected onResizeStart(nativeEvent: MouseEvent, pe: PositionedEvent): void {
+    nativeEvent.stopPropagation();
+    nativeEvent.preventDefault();
+    if (nativeEvent.button !== 0) return;
+
+    const colEl = this.dayColEl?.nativeElement;
+    if (!colEl) return;
+
+    this.isResizing = true;
+    this.resizingEvent = pe;
+    this.resizeStartY = nativeEvent.clientY;
+    const dayStart = startOfDay(pe.event.start);
+    const currentEnd = pe.event.end ?? new Date(pe.event.start.getTime() + 60 * 60 * 1000);
+    this.resizeOriginalEndMin = (currentEnd.getTime() - dayStart.getTime()) / 60000;
+
+    this.resizeMoveListener = (_e: MouseEvent) => {
+      // Visual-only: Angular CD will handle re-render on mouseup
+    };
+
+    this.resizeUpListener = (e: MouseEvent) => {
+      if (!this.resizingEvent) return;
+      const deltaY = e.clientY - this.resizeStartY;
+      const deltaMin = (deltaY / this.gridHeight) * HOURS_IN_DAY * 60;
+      const minStartMin = (pe.event.start.getTime() - dayStart.getTime()) / 60000;
+      const newEndMin = this.snapMinutes(
+        Math.min(HOURS_IN_DAY * 60, Math.max(minStartMin + 15, this.resizeOriginalEndMin + deltaMin)),
+      );
+
+      const currentDate = this.calendar.currentDate();
+      const newEnd = new Date(currentDate);
+      newEnd.setHours(Math.floor(newEndMin / 60), newEndMin % 60, 0, 0);
+
+      this.zone.run(() => {
+        this.eventResize.emit({
+          event: pe.event,
+          newStart: pe.event.start,
+          newEnd,
+          previousEnd: pe.event.end,
+        });
+        this.isResizing = false;
+        this.resizingEvent = null;
+      });
+      this.cleanupResizeListeners();
+    };
+
+    document.addEventListener('mousemove', this.resizeMoveListener);
+    document.addEventListener('mouseup', this.resizeUpListener, { once: true });
+  }
+
+  private cleanupResizeListeners(): void {
+    if (this.resizeMoveListener) {
+      document.removeEventListener('mousemove', this.resizeMoveListener);
+      this.resizeMoveListener = null;
+    }
+    if (this.resizeUpListener) {
+      document.removeEventListener('mouseup', this.resizeUpListener);
+      this.resizeUpListener = null;
+    }
   }
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
@@ -493,5 +777,18 @@ export class CalendarDayViewComponent implements OnInit, OnDestroy {
       newAllDay: false,
       previousStart: pe.event.start,
     });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  private snapMinutes(minutes: number): number {
+    return Math.round(minutes / 15) * 15;
+  }
+
+  private minToTimeLabel(minutes: number): string {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    const period = h < 12 ? 'AM' : 'PM';
+    const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${displayH}:${String(m).padStart(2, '0')} ${period}`;
   }
 }

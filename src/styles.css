@@ -771,6 +771,11 @@ body {
   pointer-events: none;
 }
 
+.gantt-popover-panel {
+  z-index: var(--z-overlay);
+  pointer-events: none;
+}
+
 @keyframes modal-in {
   from {
     opacity: 0;
@@ -857,6 +862,297 @@ body {
     transition-duration: 0.01ms !important;
   }
   .accordion-panel--open .accordion-panel__content {
+    animation: none !important;
+  }
+}
+
+/* ============================================================
+   Resizable Panel Group — Apple HIG Style
+   Lives in global styles to avoid ViewEncapsulation issues
+   ============================================================ */
+
+/* ── Group container ──────────────────────────────────────── */
+
+.rp-group {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.rp-group--horizontal {
+  flex-direction: row;
+}
+
+.rp-group--vertical {
+  flex-direction: column;
+}
+
+/* Propagate dragging cursor to entire page while dragging */
+.rp-group--dragging.rp-group--horizontal,
+.rp-group--dragging.rp-group--horizontal * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+.rp-group--dragging.rp-group--vertical,
+.rp-group--dragging.rp-group--vertical * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+/* ── Individual panel ─────────────────────────────────────── */
+
+.rp-panel {
+  position: relative;
+  flex-shrink: 0;
+  transition:
+    flex-basis var(--duration-normal) var(--ease-default),
+    opacity var(--duration-fast) var(--ease-default);
+}
+
+.rp-panel--collapsed {
+  flex-basis: 0% !important;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden !important;
+}
+
+/* ── Handle ───────────────────────────────────────────────── */
+
+.rp-handle {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  outline: none;
+  border: none;
+  padding: 0;
+  z-index: 10;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+/* Horizontal handle — separates left/right panels */
+.rp-group--horizontal > .rp-handle {
+  width: 9px;
+  min-width: 9px;
+  cursor: col-resize;
+  flex-direction: column;
+}
+
+/* Vertical handle — separates top/bottom panels */
+.rp-group--vertical > .rp-handle {
+  height: 9px;
+  min-height: 9px;
+  cursor: row-resize;
+  flex-direction: row;
+}
+
+/* Expand hit area without affecting layout */
+.rp-group--horizontal > .rp-handle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
+}
+
+.rp-group--vertical > .rp-handle::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  bottom: -4px;
+}
+
+/* Track (full-height/width line) */
+.rp-handle__track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.rp-group--horizontal > .rp-handle .rp-handle__track {
+  width: 1px;
+  height: 100%;
+  background: var(--separator);
+}
+
+.rp-group--vertical > .rp-handle .rp-handle__track {
+  height: 1px;
+  width: 100%;
+  background: var(--separator);
+}
+
+/* Pill (the visible grab indicator) */
+.rp-handle__pill {
+  border-radius: var(--radius-full);
+  background: var(--border-opaque);
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    transform var(--duration-fast) var(--ease-spring),
+    opacity var(--duration-fast) var(--ease-default);
+  opacity: 0.5;
+}
+
+.rp-group--horizontal > .rp-handle .rp-handle__pill {
+  width: 4px;
+  height: 40px;
+  max-height: 40%;
+}
+
+.rp-group--vertical > .rp-handle .rp-handle__pill {
+  height: 4px;
+  width: 40px;
+  max-width: 40%;
+}
+
+/* Hover state */
+.rp-handle:hover .rp-handle__pill,
+.rp-handle--focused .rp-handle__pill {
+  opacity: 1;
+  background: var(--color-gray-400);
+}
+
+.rp-group--horizontal > .rp-handle:hover .rp-handle__pill,
+.rp-group--horizontal > .rp-handle--focused .rp-handle__pill {
+  transform: scaleX(1.5);
+}
+
+.rp-group--vertical > .rp-handle:hover .rp-handle__pill,
+.rp-group--vertical > .rp-handle--focused .rp-handle__pill {
+  transform: scaleY(1.5);
+}
+
+/* Active / dragging state */
+.rp-handle--active .rp-handle__pill,
+.rp-handle--active:hover .rp-handle__pill {
+  background: var(--color-primary);
+  opacity: 1;
+}
+
+.rp-group--horizontal > .rp-handle--active .rp-handle__pill {
+  transform: scaleX(2);
+}
+
+.rp-group--vertical > .rp-handle--active .rp-handle__pill {
+  transform: scaleY(2);
+}
+
+.rp-handle--active .rp-handle__track {
+  background: color-mix(in oklch, var(--color-primary) 40%, transparent);
+}
+
+/* Focus ring on the handle itself */
+.rp-handle--focused {
+  outline: none;
+}
+
+.rp-handle--focused::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  pointer-events: none;
+}
+
+/* ── Collapse toggle button ───────────────────────────────── */
+
+.rp-handle__collapse-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-default);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-sm));
+  -webkit-backdrop-filter: blur(var(--blur-sm));
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition:
+    opacity var(--duration-fast) var(--ease-default),
+    transform var(--duration-fast) var(--ease-spring),
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+  z-index: 1;
+  transform: scale(0.8);
+  box-shadow: var(--shadow-sm);
+}
+
+.rp-handle:hover .rp-handle__collapse-btn,
+.rp-handle--focused .rp-handle__collapse-btn,
+.rp-handle--left-collapsed .rp-handle__collapse-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.rp-handle--left-collapsed .rp-handle__collapse-btn {
+  color: var(--color-primary);
+  background: var(--interactive-tint);
+  border-color: color-mix(in oklch, var(--color-primary) 25%, transparent);
+}
+
+.rp-handle__collapse-btn:hover {
+  background: var(--fill-secondary);
+  color: var(--text-primary);
+}
+
+.rp-handle__collapse-icon {
+  transition: transform var(--duration-normal) var(--ease-spring);
+}
+
+.rp-handle__collapse-icon--flipped {
+  transform: rotate(180deg);
+}
+
+/* Position the collapse button at the center */
+.rp-group--horizontal > .rp-handle .rp-handle__collapse-btn {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+}
+
+.rp-group--horizontal > .rp-handle:hover .rp-handle__collapse-btn,
+.rp-group--horizontal > .rp-handle--focused .rp-handle__collapse-btn,
+.rp-group--horizontal > .rp-handle--left-collapsed .rp-handle__collapse-btn {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.rp-group--vertical > .rp-handle .rp-handle__collapse-btn {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+}
+
+.rp-group--vertical > .rp-handle:hover .rp-handle__collapse-btn,
+.rp-group--vertical > .rp-handle--focused .rp-handle__collapse-btn,
+.rp-group--vertical > .rp-handle--left-collapsed .rp-handle__collapse-btn {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* ── Reduced motion overrides ────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .rp-panel,
+  .rp-handle,
+  .rp-handle__pill,
+  .rp-handle__track,
+  .rp-handle__collapse-btn,
+  .rp-handle__collapse-icon {
+    transition-duration: 0.01ms !important;
     animation: none !important;
   }
 }

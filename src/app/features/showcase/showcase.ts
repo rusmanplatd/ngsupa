@@ -65,6 +65,8 @@ import {
   CalendarComponent,
   type CalendarEvent as CalendarEventType,
   type EventDropPayload,
+  type EventResizePayload,
+  type TimeRangeSelectPayload,
 } from '../../shared/ui/calendar';
 import { Observable } from 'rxjs';
 
@@ -2663,27 +2665,96 @@ import { Observable } from 'rxjs';
         <div class="cal-feature-badges">
           <span class="cal-badge cal-badge--dnd">
             <svg lucideIcon="move" [size]="13" aria-hidden="true"></svg>
-            Drag &amp; Drop events
+            Drag &amp; Drop
+          </span>
+          <span class="cal-badge cal-badge--resize">
+            <svg lucideIcon="grip-horizontal" [size]="13" aria-hidden="true"></svg>
+            Event Resize
+          </span>
+          <span class="cal-badge cal-badge--select">
+            <svg lucideIcon="mouse-pointer-2" [size]="13" aria-hidden="true"></svg>
+            Drag to Create
           </span>
           <span class="cal-badge cal-badge--a11y">
             <svg lucideIcon="keyboard" [size]="13" aria-hidden="true"></svg>
-            Full keyboard navigation
+            Full keyboard nav
           </span>
           <span class="cal-badge cal-badge--snap">
             <svg lucideIcon="clock" [size]="13" aria-hidden="true"></svg>
-            15-min time snapping
+            15-min snapping
           </span>
-          <span class="cal-badge cal-badge--focus">
-            <svg lucideIcon="focus" [size]="13" aria-hidden="true"></svg>
-            Focus trap &amp; ARIA
+          <span class="cal-badge cal-badge--i18n">
+            <svg lucideIcon="globe" [size]="13" aria-hidden="true"></svg>
+            Localization
           </span>
           <span class="cal-badge cal-badge--overlap">
             <svg lucideIcon="layers" [size]="13" aria-hidden="true"></svg>
-            Smart overlap layout
+            Smart overlap
+          </span>
+          <span class="cal-badge cal-badge--scroll">
+            <svg lucideIcon="arrow-down-to-line" [size]="13" aria-hidden="true"></svg>
+            Auto-scroll
           </span>
         </div>
 
         <div class="space-y-8">
+
+          <!-- Day View — Resize + Drag-to-Create -->
+          <div>
+            <h3 class="subsection-label">Day View — resize events · drag to create · auto-scroll to now</h3>
+            <div style="height: 600px">
+              <app-calendar
+                [events]="calendarEvents()"
+                initialView="day"
+                [firstDayOfWeek]="1"
+                (eventClick)="onCalEventClick($event)"
+                (dateClick)="onCalDateClick($event)"
+                (eventDrop)="onCalEventDrop($event)"
+                (eventResize)="onCalEventResize($event)"
+                (timeRangeSelect)="onCalTimeRangeSelect($event)"
+              />
+            </div>
+            <p class="cal-overlap-hint">
+              <svg lucideIcon="info" [size]="13" aria-hidden="true"></svg>
+              Drag the <strong>resize handle</strong> (bar at bottom of each event) to change duration. Click-drag on empty space to <strong>create a new event</strong>.
+            </p>
+          </div>
+
+          <!-- Week View — Resize + Drag-to-Create -->
+          <div>
+            <h3 class="subsection-label">Week View — resize · drag to create · multi-day event support</h3>
+            <div style="height: 640px">
+              <app-calendar
+                [events]="calendarEvents()"
+                initialView="week"
+                [firstDayOfWeek]="1"
+                (eventClick)="onCalEventClick($event)"
+                (dateClick)="onCalDateClick($event)"
+                (eventDrop)="onCalEventDrop($event)"
+                (eventResize)="onCalEventResize($event)"
+                (timeRangeSelect)="onCalTimeRangeSelect($event)"
+              />
+            </div>
+          </div>
+
+          <!-- Activity Log -->
+          @if (calActivityLog().length > 0) {
+            <div class="cal-drop-log">
+              <div class="cal-drop-log-header">
+                <svg lucideIcon="history" [size]="14" aria-hidden="true"></svg>
+                <span>Recent interactions</span>
+                <button type="button" class="cal-log-clear-btn" (click)="calActivityLog.set([])">Clear</button>
+              </div>
+              @for (entry of calActivityLog(); track $index) {
+                <div class="cal-drop-log-row">
+                  <span class="cal-log-type-badge" [class]="'cal-log-type--' + entry.type">{{ entry.type }}</span>
+                  <span class="cal-drop-log-title">{{ entry.title }}</span>
+                  <span class="cal-drop-log-arrow" aria-hidden="true">→</span>
+                  <span class="cal-drop-log-time">{{ entry.detail }}</span>
+                </div>
+              }
+            </div>
+          }
 
           <!-- Concurrent Events — overlap layout showcase -->
           <div>
@@ -2696,6 +2767,7 @@ import { Observable } from 'rxjs';
                 (eventClick)="onCalEventClick($event)"
                 (dateClick)="onCalDateClick($event)"
                 (eventDrop)="onCalDenseEventDrop($event)"
+                (timeRangeSelect)="onCalTimeRangeSelect($event)"
               />
             </div>
             <p class="cal-overlap-hint">
@@ -2707,7 +2779,7 @@ import { Observable } from 'rxjs';
 
           <!-- Week view dense -->
           <div>
-            <h3 class="subsection-label">Week view — concurrent events across multiple days</h3>
+            <h3 class="subsection-label">Week view — concurrent events + multi-day timed event rendering</h3>
             <div style="height: 600px">
               <app-calendar
                 [events]="calendarDenseEvents()"
@@ -2716,6 +2788,35 @@ import { Observable } from 'rxjs';
                 (eventClick)="onCalEventClick($event)"
                 (dateClick)="onCalDateClick($event)"
                 (eventDrop)="onCalDenseEventDrop($event)"
+                (timeRangeSelect)="onCalTimeRangeSelect($event)"
+              />
+            </div>
+          </div>
+
+          <!-- Localization Demo -->
+          <div>
+            <h3 class="subsection-label">Localization — switch locale to reformat all dates &amp; times</h3>
+            <div class="cal-locale-switcher">
+              @for (loc of localeOptions; track loc.value) {
+                <button
+                  type="button"
+                  class="cal-locale-btn"
+                  [class.cal-locale-btn--active]="calLocale() === loc.value"
+                  (click)="calLocale.set(loc.value)"
+                >
+                  {{ loc.label }}
+                </button>
+              }
+            </div>
+            <div style="height: 640px">
+              <app-calendar
+                [events]="calendarEvents()"
+                initialView="month"
+                [firstDayOfWeek]="1"
+                [locale]="calLocale()"
+                (eventClick)="onCalEventClick($event)"
+                (dateClick)="onCalDateClick($event)"
+                (eventDrop)="onCalEventDrop($event)"
               />
             </div>
           </div>
@@ -2731,53 +2832,7 @@ import { Observable } from 'rxjs';
                 (eventClick)="onCalEventClick($event)"
                 (dateClick)="onCalDateClick($event)"
                 (eventDrop)="onCalEventDrop($event)"
-              />
-            </div>
-          </div>
-
-          <!-- Drop log -->
-          @if (calDropLog().length > 0) {
-            <div class="cal-drop-log">
-              <div class="cal-drop-log-header">
-                <svg lucideIcon="history" [size]="14" aria-hidden="true"></svg>
-                <span>Recent reschedules</span>
-              </div>
-              @for (entry of calDropLog(); track $index) {
-                <div class="cal-drop-log-row">
-                  <span class="cal-drop-log-title">{{ entry.title }}</span>
-                  <span class="cal-drop-log-arrow" aria-hidden="true">→</span>
-                  <span class="cal-drop-log-time">{{ entry.newTime }}</span>
-                </div>
-              }
-            </div>
-          }
-
-          <!-- Week View -->
-          <div>
-            <h3 class="subsection-label">Week View — drag between days &amp; snap to 15-min slots</h3>
-            <div style="height: 640px">
-              <app-calendar
-                [events]="calendarEvents()"
-                initialView="week"
-                [firstDayOfWeek]="1"
-                (eventClick)="onCalEventClick($event)"
-                (dateClick)="onCalDateClick($event)"
-                (eventDrop)="onCalEventDrop($event)"
-              />
-            </div>
-          </div>
-
-          <!-- Day View -->
-          <div>
-            <h3 class="subsection-label">Day View — drag to reschedule within the day</h3>
-            <div style="height: 600px">
-              <app-calendar
-                [events]="calendarEvents()"
-                initialView="day"
-                [firstDayOfWeek]="1"
-                (eventClick)="onCalEventClick($event)"
-                (dateClick)="onCalDateClick($event)"
-                (eventDrop)="onCalEventDrop($event)"
+                (timeRangeSelect)="onCalTimeRangeSelect($event)"
               />
             </div>
           </div>
@@ -2851,13 +2906,14 @@ import { Observable } from 'rxjs';
       font-weight: var(--font-weight-medium);
     }
 
-    .cal-badge--dnd  { background: var(--color-primary-container); color: var(--color-primary); }
-    .cal-badge--a11y { background: var(--color-success-container); color: var(--color-success); }
-    .cal-badge--snap { background: var(--color-info-container);    color: var(--color-info); }
-    .cal-badge--focus{ background: color-mix(in oklch, var(--color-system-purple) 15%, transparent);
-                       color: var(--color-system-purple); }
-    .cal-badge--overlap { background: color-mix(in oklch, var(--color-system-pink) 14%, transparent);
-                          color: var(--color-system-pink); }
+    .cal-badge--dnd    { background: var(--color-primary-container); color: var(--color-primary); }
+    .cal-badge--resize { background: color-mix(in oklch, var(--color-system-teal) 15%, transparent); color: var(--color-system-teal); }
+    .cal-badge--select { background: color-mix(in oklch, var(--color-system-purple) 15%, transparent); color: var(--color-system-purple); }
+    .cal-badge--a11y   { background: var(--color-success-container); color: var(--color-success); }
+    .cal-badge--snap   { background: var(--color-info-container);    color: var(--color-info); }
+    .cal-badge--i18n   { background: color-mix(in oklch, var(--color-warning) 14%, transparent); color: var(--color-warning); }
+    .cal-badge--overlap { background: color-mix(in oklch, var(--color-system-pink) 14%, transparent); color: var(--color-system-pink); }
+    .cal-badge--scroll  { background: color-mix(in oklch, var(--color-error) 12%, transparent); color: var(--color-error); }
 
     /* ── Overlap hint paragraph ─────────────────────────── */
     .cal-overlap-hint {
@@ -2920,6 +2976,73 @@ import { Observable } from 'rxjs';
     .cal-drop-log-time {
       color: var(--color-primary);
       font-weight: var(--font-weight-medium);
+    }
+
+    /* ── Activity log type badge ────────────────────────── */
+    .cal-log-type-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      border-radius: var(--radius-full);
+      font: var(--type-caption-2);
+      font-weight: var(--font-weight-semibold);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .cal-log-type--drop   { background: var(--color-primary-container); color: var(--color-primary); }
+    .cal-log-type--resize { background: color-mix(in oklch, var(--color-system-teal) 15%, transparent); color: var(--color-system-teal); }
+    .cal-log-type--select { background: color-mix(in oklch, var(--color-system-purple) 15%, transparent); color: var(--color-system-purple); }
+
+    /* ── Log clear button ────────────────────────────────── */
+    .cal-log-clear-btn {
+      margin-left: auto;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background: var(--fill-tertiary);
+      border: none;
+      font: var(--type-caption-2);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: background var(--duration-fast);
+    }
+
+    .cal-log-clear-btn:hover {
+      background: var(--fill-secondary);
+      color: var(--text-secondary);
+    }
+
+    /* ── Locale switcher ─────────────────────────────────── */
+    .cal-locale-switcher {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .cal-locale-btn {
+      padding: 5px 14px;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--border-default);
+      background: var(--surface-secondary);
+      font: var(--type-caption-1);
+      font-weight: var(--font-weight-medium);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast);
+    }
+
+    .cal-locale-btn:hover {
+      background: var(--fill-secondary);
+      color: var(--text-primary);
+    }
+
+    .cal-locale-btn--active {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: #ffffff;
     }
 
     /* ── Carousel Demo Slides ──────────────────────────── */
@@ -4410,10 +4533,40 @@ export class ShowcaseComponent {
         color: 'purple' as const,
         subtitle: 'Convention Center',
       },
+
+      // ── Cross-midnight event (multi-day timed) ───────────────────
+      // Demonstrates Feature 4: proper rendering across day boundaries
+      {
+        id: 'ev-20',
+        title: 'Late Night Deploy',
+        start: dt(0, 22, 30),
+        end: dt(1, 2, 0),
+        color: 'error' as const,
+        subtitle: 'Remote · spans midnight',
+      },
+      {
+        id: 'ev-21',
+        title: 'On-Call Shift',
+        start: dt(3, 21, 0),
+        end: dt(4, 7, 0),
+        color: 'warning' as const,
+        subtitle: 'Spans overnight',
+      },
     ];
   })());
 
   protected readonly calDropLog = signal<{ title: string; newTime: string }[]>([]);
+  protected readonly calActivityLog = signal<{ type: string; title: string; detail: string }[]>([]);
+  protected readonly calLocale = signal<string>('en-US');
+
+  protected readonly localeOptions = [
+    { label: '🇺🇸 en-US', value: 'en-US' },
+    { label: '🇩🇪 de-DE', value: 'de-DE' },
+    { label: '🇯🇵 ja-JP', value: 'ja-JP' },
+    { label: '🇫🇷 fr-FR', value: 'fr-FR' },
+    { label: '🇸🇦 ar-SA', value: 'ar-SA' },
+    { label: '🇨🇳 zh-CN', value: 'zh-CN' },
+  ];
 
   // ── Dense/concurrent events demo data ────────────────────────────────────
   protected readonly calendarDenseEvents = signal<CalendarEventType[]>((() => {
@@ -4481,20 +4634,49 @@ export class ShowcaseComponent {
       ),
     );
 
-    // Add to drop log (keep last 5)
     const newTime = payload.newStart.toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit',
     });
-    this.calDropLog.update((log) => [
-      { title: payload.event.title, newTime },
+
+    // Add to activity log
+    this.calActivityLog.update((log) => [
+      { type: 'drop', title: payload.event.title, detail: newTime },
       ...log,
-    ].slice(0, 5));
+    ].slice(0, 8));
 
     this.toastService.success(`✅ Rescheduled "${payload.event.title}" → ${newTime}`);
+  }
+
+  protected onCalEventResize(payload: EventResizePayload): void {
+    this.calendarEvents.update((events) =>
+      events.map((e) =>
+        e.id === payload.event.id
+          ? { ...e, start: payload.newStart, end: payload.newEnd }
+          : e,
+      ),
+    );
+
+    const newEnd = payload.newEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    this.calActivityLog.update((log) => [
+      { type: 'resize', title: payload.event.title, detail: `ends ${newEnd}` },
+      ...log,
+    ].slice(0, 8));
+
+    this.toastService.info(`↕ Resized "${payload.event.title}" → ends ${newEnd}`);
+  }
+
+  protected onCalTimeRangeSelect(payload: TimeRangeSelectPayload): void {
+    const start = payload.start.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' });
+    const end = payload.end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const label = `${start} – ${end}`;
+
+    this.calActivityLog.update((log) => [
+      { type: 'select', title: 'New event', detail: label },
+      ...log,
+    ].slice(0, 8));
+
+    this.toastService.success(`✨ Selected: ${label}`);
   }
 
   protected onCalDenseEventDrop(payload: EventDropPayload): void {

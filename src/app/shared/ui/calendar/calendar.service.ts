@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, Service } from '@angular/core';
 import {
   CalendarView,
   CalendarEvent,
@@ -11,13 +11,14 @@ import {
   HOURS_IN_DAY,
 } from './calendar.models';
 
-@Injectable()
+@Service()
 export class CalendarService {
   // ── State Signals ─────────────────────────────────────────────────────────
   readonly currentDate = signal<Date>(new Date());
   readonly view = signal<CalendarView>('month');
   readonly events = signal<CalendarEvent[]>([]);
   readonly firstDayOfWeek = signal<0 | 1>(1); // 0=Sunday, 1=Monday
+  readonly locale = signal<string>('en-US');
 
   // ── Derived: Range of visible period ─────────────────────────────────────
   readonly periodStart = computed<Date>(() => {
@@ -43,7 +44,7 @@ export class CalendarService {
   readonly periodTitle = computed<string>(() => {
     const d = this.currentDate();
     const v = this.view();
-    const locale = 'en-US';
+    const locale = this.locale();
 
     if (v === 'month') {
       return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
@@ -60,12 +61,12 @@ export class CalendarService {
       const start = startOfWeek(d, this.firstDayOfWeek());
       const end = endOfWeek(d, this.firstDayOfWeek());
       if (start.getMonth() === end.getMonth()) {
-        return `${start.toLocaleDateString(locale, { month: 'long' })} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`;
+        return `${start.toLocaleDateString(locale, { month: 'long' })} ${start.getDate()}\u2013${end.getDate()}, ${start.getFullYear()}`;
       }
-      return `${start.toLocaleDateString(locale, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      return `${start.toLocaleDateString(locale, { month: 'short', day: 'numeric' })} \u2013 ${end.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}`;
     }
     // schedule
-    return `Schedule — ${d.toLocaleDateString(locale, { month: 'long', year: 'numeric' })}`;
+    return `Schedule \u2014 ${d.toLocaleDateString(locale, { month: 'long', year: 'numeric' })}`;
   });
 
   // ── Derived: Month Grid ───────────────────────────────────────────────────
@@ -140,6 +141,7 @@ export class CalendarService {
       const dayEnd = endOfDay(day);
       const dayEvents = evts
         .filter((e) => !e.allDay && eventOverlapsDay(e, dayStart, dayEnd))
+        .map((e) => clampEventToDay(e, dayStart, dayEnd))
         .sort((a, b) => a.start.getTime() - b.start.getTime());
 
       map.set(dayIdx, layoutPositionedEvents(dayEvents, dayStart));
@@ -153,9 +155,9 @@ export class CalendarService {
     const d = this.currentDate();
     const dayStart = startOfDay(d);
     const dayEnd = endOfDay(d);
-    const evts = this.events().filter(
-      (e) => !e.allDay && eventOverlapsDay(e, dayStart, dayEnd),
-    );
+    const evts = this.events()
+      .filter((e) => !e.allDay && eventOverlapsDay(e, dayStart, dayEnd))
+      .map((e) => clampEventToDay(e, dayStart, dayEnd));
     return layoutPositionedEvents(evts, dayStart);
   });
 
@@ -313,6 +315,18 @@ export function eventOverlapsDay(event: CalendarEvent, dayStart: Date, dayEnd: D
   return evStart <= dayEnd.getTime() && evEnd >= dayStart.getTime();
 }
 
+/**
+ * Returns a shallow copy of the event with start/end clamped to [dayStart, dayEnd].
+ * Used to render multi-day timed events correctly in each day column.
+ */
+export function clampEventToDay(event: CalendarEvent, dayStart: Date, dayEnd: Date): CalendarEvent {
+  const clampedStart = new Date(Math.max(event.start.getTime(), dayStart.getTime()));
+  const clampedEnd = event.end
+    ? new Date(Math.min(event.end.getTime(), dayEnd.getTime()))
+    : new Date(Math.min(event.start.getTime() + 60 * 60 * 1000, dayEnd.getTime()));
+  return { ...event, start: clampedStart, end: clampedEnd };
+}
+
 export function formatHour(hour: number): string {
   if (hour === 0) return '12 AM';
   if (hour < 12) return `${hour} AM`;
@@ -320,8 +334,16 @@ export function formatHour(hour: number): string {
   return `${hour - 12} PM`;
 }
 
-export function formatEventTime(d: Date): string {
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+export function formatEventTime(d: Date, locale = 'en-US'): string {
+  return d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+export function formatDayHeader(
+  d: Date,
+  locale: string,
+  options: Intl.DateTimeFormatOptions,
+): string {
+  return d.toLocaleDateString(locale, options);
 }
 
 /**

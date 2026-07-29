@@ -96,6 +96,21 @@ export interface EventDropPayload {
   previousStart: Date;
 }
 
+/** Payload emitted when the user drags the bottom handle of an event to resize it */
+export interface EventResizePayload {
+  event: CalendarEvent;
+  newStart: Date;
+  newEnd: Date;
+  previousEnd: Date | undefined;
+}
+
+/** Payload emitted when the user drag-selects an empty time range */
+export interface TimeRangeSelectPayload {
+  start: Date;
+  end: Date;
+  allDay: boolean;
+}
+
 export const MAX_VISIBLE_EVENTS_MONTH = 3;
 /** Maximum number of overlapping timed events shown side-by-side in week/day grids */
 export const MAX_CONCURRENT_EVENTS = 3;

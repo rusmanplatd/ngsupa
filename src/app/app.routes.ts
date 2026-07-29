@@ -39,6 +39,16 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/sidenav-demo/sidenav-demo').then((m) => m.SidenavDemoComponent),
   },
+  {
+    path: 'resizable-demo',
+    loadComponent: () =>
+      import('./features/resizable-demo/resizable-demo').then((m) => m.ResizableDemoComponent),
+  },
+  {
+    path: 'gantt-demo',
+    loadComponent: () =>
+      import('./features/gantt-demo/gantt-demo.component').then((m) => m.GanttDemoComponent),
+  },
   { path: '**', redirectTo: 'dashboard' },
 ];
 

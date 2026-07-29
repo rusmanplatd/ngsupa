@@ -26,6 +26,7 @@ import {
   EventClickPayload,
   DateClickPayload,
   EventDropPayload,
+  TimeRangeSelectPayload,
 } from '../calendar.models';
 
 @Component({
@@ -65,7 +66,7 @@ import {
               [class.cal-day-cell--today]="cell.isToday"
               [class.cal-day-cell--weekend]="cell.isWeekend"
               [class.cal-day-cell--focused]="isFocusedDate(cell.date)"
-              [attr.aria-label]="cell.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })"
+              [attr.aria-label]="cell.date.toLocaleDateString(calendar.locale(), { weekday: 'long', month: 'long', day: 'numeric' })"
               [attr.aria-current]="cell.isToday ? 'date' : null"
               [attr.tabindex]="isFocusedDate(cell.date) ? 0 : -1"
               [attr.data-date]="cell.date.toISOString()"
@@ -139,12 +140,12 @@ import {
         class="cal-overflow-popover"
         role="dialog"
         aria-modal="true"
-        [attr.aria-label]="overflowCell()!.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) + ' events'"
+        [attr.aria-label]="overflowCell()!.date.toLocaleDateString(calendar.locale(), { month: 'long', day: 'numeric' }) + ' events'"
         (keydown.escape)="closeOverflow()"
       >
         <div class="cal-overflow-popover-header">
           <span class="cal-overflow-popover-date">
-            {{ overflowCell()!.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) }}
+            {{ overflowCell()!.date.toLocaleDateString(calendar.locale(), { weekday: 'short', month: 'short', day: 'numeric' }) }}
           </span>
           <button
             type="button"
@@ -161,7 +162,7 @@ import {
               type="button"
               class="cal-overflow-event-row"
               [class]="'cal-overflow-event-row--' + (evt.color ?? 'primary')"
-              [attr.aria-label]="evt.title + ', ' + (evt.allDay ? 'all day' : evt.start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))"
+              [attr.aria-label]="evt.title + ', ' + (evt.allDay ? 'all day' : evt.start.toLocaleTimeString(calendar.locale(), { hour: 'numeric', minute: '2-digit' }))"
               (click)="onEventClick($event, evt)"
             >
               <span class="cal-overflow-event-dot" aria-hidden="true"></span>
@@ -169,7 +170,7 @@ import {
                 <span class="cal-overflow-event-title">{{ evt.title }}</span>
                 @if (!evt.allDay && evt.start) {
                   <span class="cal-overflow-event-time">
-                    {{ evt.start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) }}
+                    {{ evt.start.toLocaleTimeString(calendar.locale(), { hour: 'numeric', minute: '2-digit' }) }}
                   </span>
                 }
               </div>
@@ -546,6 +547,7 @@ export class CalendarMonthViewComponent implements AfterViewInit, OnDestroy {
   readonly eventClick = output<EventClickPayload>();
   readonly dateClick = output<DateClickPayload>();
   readonly eventDrop = output<EventDropPayload>();
+  readonly timeRangeSelect = output<TimeRangeSelectPayload>();
 
   protected readonly overflowCell = signal<CalendarDay | null>(null);
   protected readonly allCellEvents = signal<CalendarEvent[]>([]);
@@ -576,8 +578,15 @@ export class CalendarMonthViewComponent implements AfterViewInit, OnDestroy {
 
   private buildDowLabels(): string[] {
     const fdw = this.calendar.firstDayOfWeek();
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return [...days.slice(fdw), ...days.slice(0, fdw)];
+    const locale = this.calendar.locale();
+    // Generate day labels using locale-aware formatting
+    const baseDate = new Date(2023, 0, 1); // Jan 1, 2023 is a Sunday
+    return Array.from({ length: 7 }, (_, i) => {
+      const dayOffset = (i + fdw) % 7;
+      const d = new Date(baseDate);
+      d.setDate(baseDate.getDate() + dayOffset);
+      return d.toLocaleDateString(locale, { weekday: 'long' });
+    });
   }
 
   protected isFocusedDate(date: Date): boolean {

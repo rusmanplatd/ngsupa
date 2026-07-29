@@ -20,6 +20,8 @@ import {
   DateClickPayload,
   ViewChangePayload,
   EventDropPayload,
+  EventResizePayload,
+  TimeRangeSelectPayload,
 } from './calendar.models';
 
 @Component({
@@ -51,6 +53,7 @@ import {
                 (eventClick)="eventClick.emit($event)"
                 (dateClick)="dateClick.emit($event)"
                 (eventDrop)="eventDrop.emit($event)"
+                (timeRangeSelect)="timeRangeSelect.emit($event)"
               />
             </div>
           }
@@ -60,6 +63,8 @@ import {
                 (eventClick)="eventClick.emit($event)"
                 (dateClick)="dateClick.emit($event)"
                 (eventDrop)="eventDrop.emit($event)"
+                (eventResize)="eventResize.emit($event)"
+                (timeRangeSelect)="timeRangeSelect.emit($event)"
               />
             </div>
           }
@@ -69,6 +74,8 @@ import {
                 (eventClick)="eventClick.emit($event)"
                 (dateClick)="dateClick.emit($event)"
                 (eventDrop)="eventDrop.emit($event)"
+                (eventResize)="eventResize.emit($event)"
+                (timeRangeSelect)="timeRangeSelect.emit($event)"
               />
             </div>
           }
@@ -134,17 +141,21 @@ export class CalendarComponent implements OnInit {
   readonly initialView = input<CalendarView>('month');
   readonly initialDate = input<Date | null>(null);
   readonly firstDayOfWeek = input<0 | 1>(1);
+  readonly locale = input<string>('en-US');
 
   // ── Outputs ──────────────────────────────────────────────────────────────
   readonly eventClick = output<EventClickPayload>();
   readonly dateClick = output<DateClickPayload>();
   readonly viewChange = output<ViewChangePayload>();
   readonly eventDrop = output<EventDropPayload>();
+  readonly eventResize = output<EventResizePayload>();
+  readonly timeRangeSelect = output<TimeRangeSelectPayload>();
 
   ngOnInit(): void {
     // Apply initial config
     this.svc.view.set(this.initialView());
     this.svc.firstDayOfWeek.set(this.firstDayOfWeek());
+    this.svc.locale.set(this.locale());
     if (this.initialDate()) {
       this.svc.currentDate.set(this.initialDate()!);
     }
@@ -154,6 +165,14 @@ export class CalendarComponent implements OnInit {
     effect(
       () => {
         this.svc.events.set(this.events());
+      },
+      { injector: this.injector },
+    );
+
+    // Sync locale input → service
+    effect(
+      () => {
+        this.svc.locale.set(this.locale());
       },
       { injector: this.injector },
     );
