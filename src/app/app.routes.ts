@@ -49,6 +49,16 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/gantt-demo/gantt-demo.component').then((m) => m.GanttDemoComponent),
   },
+  {
+    path: 'chart-demo',
+    loadComponent: () =>
+      import('./features/chart-demo/chart-demo.component').then((m) => m.ChartDemoComponent),
+  },
+  {
+    path: 'map-demo',
+    loadComponent: () =>
+      import('./features/map-demo/map-demo.component').then((m) => m.MapDemoComponent),
+  },
   { path: '**', redirectTo: 'dashboard' },
 ];
 
