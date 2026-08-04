@@ -59,6 +59,11 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/map-demo/map-demo.component').then((m) => m.MapDemoComponent),
   },
+  {
+    path: 'route-demo',
+    loadComponent: () =>
+      import('./features/route-demo/route-demo.component').then((m) => m.RouteDemoComponent),
+  },
   { path: '**', redirectTo: 'dashboard' },
 ];
 
