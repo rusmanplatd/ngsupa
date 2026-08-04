@@ -5,6 +5,7 @@ import {
   afterNextRender,
   OnDestroy,
   signal,
+  computed,
 } from '@angular/core';
 import {
   Map,
@@ -41,6 +42,18 @@ export interface SearchResultItem {
   flag?: string;
   type?: string;
   zoom?: number;
+}
+
+export interface LiveUser {
+  id: string;
+  name: string;
+  avatar: string;
+  color: string;
+  lngLat: [number, number];
+  status: 'active' | 'idle' | 'away';
+  lastSeen: number;
+  speed: number;          // degrees per tick
+  heading: [number, number]; // dx, dy direction
 }
 
 // ── Reliable Map Styles ───────────────────────────────────────────────
@@ -318,729 +331,28 @@ export const POPULAR_LOCATIONS: SearchResultItem[] = [
   },
 ];
 
+// ── LiveShare: simulated users ───────────────────────────────────────
+export const LIVE_USERS_SEED: Omit<LiveUser, 'lngLat' | 'speed' | 'heading'>[] = [
+  { id: 'u1', name: 'Alice',   avatar: '👩‍💻', color: '#007aff', status: 'active', lastSeen: 0 },
+  { id: 'u2', name: 'Bob',     avatar: '👨‍🎨', color: '#ff375f', status: 'active', lastSeen: 0 },
+  { id: 'u3', name: 'Cindy',  avatar: '👩‍🔬', color: '#30d158', status: 'active', lastSeen: 0 },
+  { id: 'u4', name: 'David',  avatar: '👨‍🚀', color: '#ff9f0a', status: 'idle',   lastSeen: 0 },
+  { id: 'u5', name: 'Eve',    avatar: '👩‍🎤', color: '#bf5af2', status: 'active', lastSeen: 0 },
+  { id: 'u6', name: 'Frank',  avatar: '🧑‍💼', color: '#32ade6', status: 'away',   lastSeen: 0 },
+];
+
+// Map bounds for simulation (Greater Jakarta / Jabodetabek)
+const SIM_BOUNDS = { minLng: 106.65, maxLng: 107.05, minLat: -6.45, maxLat: -6.05 };
+const SIM_TICK_MS = 1400;
+
+function randInRange(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
 @Component({
   selector: 'app-map-demo',
   imports: [],
-  styles: `
-    :host { display: block; }
-
-    .map-page {
-      min-height: 100vh;
-      background: var(--surface-grouped);
-      color: var(--text-primary);
-    }
-
-    /* ── Header ── */
-    .page-header {
-      padding: 2rem 2rem 1.5rem;
-      background: var(--glass-bg);
-      backdrop-filter: blur(var(--blur-lg));
-      border-bottom: 1px solid var(--border-default);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .header-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .header-text h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin: 0 0 0.25rem;
-      background: linear-gradient(135deg, var(--color-system-blue), var(--color-system-purple));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .header-text p {
-      margin: 0;
-      color: var(--text-secondary);
-      font-size: 0.9375rem;
-    }
-
-    .header-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.375rem;
-      padding: 0.375rem 0.875rem;
-      background: var(--color-system-blue-light);
-      color: var(--color-system-blue);
-      border-radius: var(--radius-full);
-      font-size: 0.8125rem;
-      font-weight: 600;
-    }
-
-    /* ── Main content ── */
-    .page-content {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 2rem 2rem 4rem;
-      display: flex;
-      flex-direction: column;
-      gap: 3rem;
-    }
-
-    /* ── Section headings ── */
-    .section-heading {
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin: 0 0 1rem;
-      letter-spacing: -0.01em;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    /* ── Map container ── */
-    .map-wrapper {
-      position: relative;
-      border-radius: var(--radius-xl);
-      clip-path: inset(0 round var(--radius-xl));
-      box-shadow: var(--shadow-xl);
-      border: 1px solid var(--border-default);
-      background: var(--surface-elevated);
-    }
-
-    .map-wrapper .maplibregl-canvas {
-      border-radius: var(--radius-xl);
-    }
-
-    .map-container {
-      width: 100%;
-      height: 520px;
-    }
-
-    /* ── Map overlay toolbar ── */
-    .map-toolbar {
-      position: absolute;
-      top: 1rem;
-      left: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      z-index: 10;
-    }
-
-    .style-switcher {
-      display: flex;
-      flex-direction: column;
-      gap: 0.375rem;
-      background: var(--glass-bg-thick);
-      backdrop-filter: blur(var(--blur-md));
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      padding: 0.5rem;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .style-btn {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 0.75rem;
-      border-radius: var(--radius-md);
-      border: 1px solid transparent;
-      background: transparent;
-      font: inherit;
-      font-size: 0.8125rem;
-      font-weight: 500;
-      color: var(--text-primary);
-      cursor: pointer;
-      transition: background 150ms ease, border-color 150ms ease;
-      white-space: nowrap;
-    }
-
-    .style-btn:hover { background: var(--fill-primary); }
-
-    .style-btn.active {
-      background: var(--color-system-blue-light);
-      border-color: var(--color-system-blue);
-      color: var(--color-system-blue);
-      font-weight: 600;
-    }
-
-    /* ── Info panel ── */
-    .info-panel {
-      position: absolute;
-      bottom: 1.5rem;
-      left: 1rem;
-      background: var(--glass-bg-thick);
-      backdrop-filter: blur(var(--blur-md));
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      padding: 0.875rem 1rem;
-      box-shadow: var(--shadow-lg);
-      font-size: 0.8125rem;
-      color: var(--text-secondary);
-      z-index: 10;
-    }
-
-    .info-panel strong { color: var(--text-primary); display: block; margin-bottom: 0.25rem; }
-    .coord-row { font-family: var(--font-mono); font-size: 0.75rem; }
-
-    /* ── Feature cards grid ── */
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-
-    .feature-card {
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-default);
-      border-radius: var(--radius-xl);
-      padding: 1.5rem;
-      transition: box-shadow 200ms ease, transform 200ms ease;
-    }
-
-    .feature-card:hover {
-      box-shadow: var(--shadow-md);
-      transform: translateY(-2px);
-    }
-
-    .feature-icon {
-      font-size: 2rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .feature-card h3 {
-      font-size: 1rem;
-      font-weight: 600;
-      margin: 0 0 0.375rem;
-    }
-
-    .feature-card p {
-      font-size: 0.875rem;
-      color: var(--text-secondary);
-      margin: 0;
-      line-height: 1.5;
-    }
-
-    /* ── Layer controls ── */
-    .layer-grid {
-      display: grid;
-      grid-template-columns: 1fr 320px;
-      gap: 1.5rem;
-      align-items: start;
-    }
-
-    @media (max-width: 900px) {
-      .layer-grid { grid-template-columns: 1fr; }
-    }
-
-    .layer-controls {
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-default);
-      border-radius: var(--radius-xl);
-      padding: 1.5rem;
-    }
-
-    .layer-controls h3 {
-      font-size: 1.0625rem;
-      font-weight: 600;
-      margin: 0 0 1rem;
-    }
-
-    .layer-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.75rem 0;
-      border-bottom: 1px solid var(--separator);
-    }
-
-    .layer-item:last-child { border-bottom: none; }
-
-    .layer-info { display: flex; align-items: center; gap: 0.75rem; }
-
-    .layer-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .layer-label { font-size: 0.9375rem; font-weight: 500; }
-    .layer-desc { font-size: 0.8125rem; color: var(--text-secondary); }
-
-    .toggle-switch {
-      position: relative;
-      width: 44px;
-      height: 26px;
-      flex-shrink: 0;
-    }
-
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-      position: absolute;
-    }
-
-    .toggle-track {
-      position: absolute;
-      inset: 0;
-      border-radius: var(--radius-full);
-      background: var(--fill-secondary);
-      cursor: pointer;
-      transition: background 200ms ease;
-    }
-
-    .toggle-track::after {
-      content: '';
-      position: absolute;
-      top: 3px;
-      left: 3px;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: white;
-      box-shadow: var(--shadow-sm);
-      transition: transform 200ms var(--ease-spring);
-    }
-
-    .toggle-switch input:checked + .toggle-track {
-      background: var(--color-system-green);
-    }
-
-    .toggle-switch input:checked + .toggle-track::after {
-      transform: translateX(18px);
-    }
-
-    /* ── Geocoder / Search Section ── */
-    .search-section {
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 1.5rem;
-      align-items: start;
-    }
-
-    @media (max-width: 900px) {
-      .search-section { grid-template-columns: 1fr; }
-    }
-
-    .geo-map-overlay {
-      position: absolute;
-      top: 1rem;
-      left: 1rem;
-      background: var(--glass-bg-thick);
-      backdrop-filter: blur(var(--blur-md));
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      padding: 0.75rem 1rem;
-      box-shadow: var(--shadow-lg);
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      animation: fadeIn 200ms ease;
-    }
-
-    .geo-overlay-flag { font-size: 1.5rem; }
-    .geo-overlay-title { font-weight: 700; font-size: 0.9375rem; color: var(--text-primary); }
-    .geo-overlay-sub { font-size: 0.75rem; color: var(--text-secondary); font-family: var(--font-mono); }
-
-    .search-panel {
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-default);
-      border-radius: var(--radius-xl);
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-    }
-
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .panel-header h3 {
-      font-size: 1.0625rem;
-      font-weight: 700;
-      margin: 0;
-      letter-spacing: -0.01em;
-    }
-
-    .search-input-box {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .search-input-row {
-      display: flex;
-      gap: 0.5rem;
-      position: relative;
-    }
-
-    .search-input-wrapper {
-      position: relative;
-      flex: 1;
-      display: flex;
-      align-items: center;
-    }
-
-    .search-input-icon {
-      position: absolute;
-      left: 0.75rem;
-      color: var(--text-tertiary);
-      font-size: 0.875rem;
-      pointer-events: none;
-    }
-
-    .search-input {
-      width: 100%;
-      padding: 0.6875rem 2rem 0.6875rem 2.25rem;
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border-opaque);
-      background: var(--surface-primary);
-      color: var(--text-primary);
-      font: inherit;
-      font-size: 0.9375rem;
-      outline: none;
-      transition: border-color 150ms ease, box-shadow 150ms ease;
-    }
-
-    .search-input:focus {
-      border-color: var(--color-system-blue);
-      box-shadow: var(--form-control-glow);
-    }
-
-    .search-clear-btn {
-      position: absolute;
-      right: 0.625rem;
-      background: var(--fill-secondary);
-      border: none;
-      color: var(--text-secondary);
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.6875rem;
-      cursor: pointer;
-      transition: background 150ms ease, color 150ms ease;
-    }
-
-    .search-clear-btn:hover {
-      background: var(--fill-tertiary);
-      color: var(--text-primary);
-    }
-
-    .search-btn {
-      padding: 0.6875rem 1.25rem;
-      border-radius: var(--radius-lg);
-      border: none;
-      background: var(--color-system-blue);
-      color: white;
-      font: inherit;
-      font-size: 0.9375rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 150ms ease, transform 100ms ease, opacity 150ms ease;
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-      white-space: nowrap;
-    }
-
-    .search-btn:hover:not(:disabled) {
-      background: var(--color-system-blue-hover);
-    }
-
-    .search-btn:active:not(:disabled) {
-      transform: scale(0.97);
-    }
-
-    .search-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .search-spinner {
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 600ms linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ── Search Results List ── */
-    .search-results-section {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .section-subheading {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin: 0.25rem 0 0.125rem;
-    }
-
-    .search-results-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.375rem;
-      max-height: 220px;
-      overflow-y: auto;
-      padding-right: 2px;
-    }
-
-    .search-result-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      padding: 0.625rem 0.875rem;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border-default);
-      background: var(--surface-primary);
-      color: var(--text-primary);
-      font: inherit;
-      font-size: 0.875rem;
-      cursor: pointer;
-      text-align: left;
-      transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
-    }
-
-    .search-result-item:hover {
-      background: var(--fill-primary);
-      border-color: var(--color-system-blue);
-      transform: translateX(2px);
-    }
-
-    .search-result-item.active {
-      background: var(--color-system-blue-light);
-      border-color: var(--color-system-blue);
-    }
-
-    .result-main {
-      display: flex;
-      align-items: center;
-      gap: 0.625rem;
-      min-width: 0;
-    }
-
-    .result-flag { font-size: 1.125rem; flex-shrink: 0; }
-
-    .result-text {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
-
-    .result-name {
-      font-weight: 600;
-      color: var(--text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .result-sub {
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .result-type-badge {
-      font-size: 0.6875rem;
-      padding: 0.125rem 0.5rem;
-      border-radius: var(--radius-full);
-      background: var(--fill-secondary);
-      color: var(--text-secondary);
-      font-weight: 500;
-      flex-shrink: 0;
-      text-transform: capitalize;
-    }
-
-    .search-error-banner {
-      padding: 0.75rem 1rem;
-      background: oklch(95% 0.05 30);
-      border: 1px solid oklch(85% 0.1 30);
-      color: oklch(40% 0.15 30);
-      border-radius: var(--radius-md);
-      font-size: 0.8125rem;
-      display: flex;
-      align-items: flex-start;
-      gap: 0.5rem;
-    }
-
-    /* ── Quick Locations ── */
-    .quick-locations-section {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .quick-locations-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 0.375rem;
-      max-height: 260px;
-      overflow-y: auto;
-      padding-right: 2px;
-    }
-
-    .quick-loc-btn {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      padding: 0.625rem 0.875rem;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border-default);
-      background: var(--surface-primary);
-      color: var(--text-primary);
-      font: inherit;
-      font-size: 0.875rem;
-      cursor: pointer;
-      text-align: left;
-      transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
-    }
-
-    .quick-loc-btn:hover {
-      background: var(--fill-primary);
-      border-color: var(--color-system-blue);
-      transform: translateX(2px);
-    }
-
-    .quick-loc-btn.active {
-      background: var(--color-system-blue-light);
-      border-color: var(--color-system-blue);
-    }
-
-    .quick-loc-content {
-      display: flex;
-      align-items: center;
-      gap: 0.625rem;
-    }
-
-    .quick-loc-flag { font-size: 1.125rem; flex-shrink: 0; }
-    .quick-loc-name { font-weight: 600; color: var(--text-primary); }
-    .quick-loc-sub { font-size: 0.75rem; color: var(--text-secondary); }
-    .quick-loc-coords { font-size: 0.75rem; color: var(--text-tertiary); font-family: var(--font-mono); }
-
-    /* ── Stats strip ── */
-    .stats-strip {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1rem;
-    }
-
-    @media (max-width: 640px) {
-      .stats-strip { grid-template-columns: repeat(2, 1fr); }
-    }
-
-    .stat-card {
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-default);
-      border-radius: var(--radius-xl);
-      padding: 1.25rem;
-      text-align: center;
-      transition: box-shadow 200ms ease, transform 200ms ease;
-    }
-
-    .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-
-    .stat-value {
-      font-size: 1.75rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: var(--color-system-blue);
-    }
-
-    .stat-label {
-      font-size: 0.8125rem;
-      color: var(--text-secondary);
-      margin-top: 0.25rem;
-    }
-
-    /* ── Code snippet ── */
-    .code-block {
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-default);
-      border-radius: var(--radius-xl);
-      padding: 1.5rem;
-      overflow: auto;
-    }
-
-    .code-block-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1rem;
-    }
-
-    .code-block-title {
-      font-size: 0.9375rem;
-      font-weight: 600;
-    }
-
-    .code-dots {
-      display: flex;
-      gap: 6px;
-    }
-
-    .code-dots span {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
-
-    pre {
-      margin: 0;
-      font-family: var(--font-mono);
-      font-size: 0.8125rem;
-      line-height: 1.7;
-      color: var(--text-primary);
-      overflow-x: auto;
-      white-space: pre;
-    }
-
-    .kw  { color: var(--color-system-purple); }
-    .fn  { color: var(--color-system-blue); }
-    .str { color: var(--color-system-green); }
-    .cm  { color: var(--text-tertiary); font-style: italic; }
-    .nm  { color: var(--color-system-orange); }
-
-    /* ── maplibre overrides ── */
-    .maplibregl-ctrl-group {
-      border-radius: var(--radius-lg) !important;
-      overflow: hidden;
-      box-shadow: var(--shadow-md) !important;
-    }
-  `,
+  styleUrl: './map-demo.component.css',
   template: `
     <div class="map-page">
       <!-- Header -->
@@ -1281,6 +593,94 @@ export const POPULAR_LOCATIONS: SearchResultItem[] = [
           </div>
         </section>
 
+        <!-- ─── LiveShare Demo ─── -->
+        <section aria-labelledby="section-liveshare">
+          <h2 id="section-liveshare" class="section-heading">👥 Live Presence &amp; Location Sharing</h2>
+          <p class="section-description">
+            Simulates Supabase Realtime presence channels — multiple users broadcasting
+            their live location. Each avatar moves independently across the map in real time.
+          </p>
+
+          <div class="liveshare-layout">
+            <!-- Map -->
+            <div class="map-wrapper liveshare-map-wrapper">
+              <div #liveMapEl class="map-container" id="live-map"></div>
+
+              <!-- Live badge -->
+              <div class="live-badge" aria-live="polite">
+                <span class="live-dot"></span>
+                <span>LIVE</span>
+                <span class="live-count">{{ liveActiveCount() }} online</span>
+              </div>
+
+              <!-- Simulation controls -->
+              <div class="sim-controls">
+                <button
+                  type="button"
+                  class="sim-btn"
+                  [class.active]="liveSimRunning()"
+                  (click)="toggleSimulation()"
+                  id="live-sim-toggle-btn">
+                  {{ liveSimRunning() ? '⏸ Pause' : '▶ Resume' }}
+                </button>
+                <button
+                  type="button"
+                  class="sim-btn"
+                  (click)="resetSimulation()"
+                  id="live-sim-reset-btn">
+                  🔄 Reset
+                </button>
+              </div>
+            </div>
+
+            <!-- Users Panel -->
+            <div class="live-panel">
+              <div class="live-panel-header">
+                <h3>Active Sessions</h3>
+                <span class="live-session-count">{{ liveUsers().length }} users</span>
+              </div>
+
+              <div class="live-users-list" role="list">
+                @for (user of liveUsers(); track user.id) {
+                  <div
+                    class="live-user-row"
+                    [class.idle]="user.status === 'idle'"
+                    [class.away]="user.status === 'away'"
+                    role="listitem">
+                    <div class="live-user-avatar" [style.background]="user.color + '22'" [style.border-color]="user.color">
+                      <span>{{ user.avatar }}</span>
+                      <span class="live-user-status-dot" [class]="'status-' + user.status"></span>
+                    </div>
+                    <div class="live-user-info">
+                      <div class="live-user-name">{{ user.name }}</div>
+                      <div class="live-user-coords">
+                        {{ user.lngLat[0].toFixed(2) }}°, {{ user.lngLat[1].toFixed(2) }}°
+                      </div>
+                    </div>
+                    <span class="live-user-status-badge" [class]="'badge-' + user.status">{{ user.status }}</span>
+                  </div>
+                }
+              </div>
+
+              <!-- Channel info -->
+              <div class="live-channel-info">
+                <div class="channel-row">
+                  <span class="channel-label">Channel</span>
+                  <span class="channel-value">realtime:presence:map-demo</span>
+                </div>
+                <div class="channel-row">
+                  <span class="channel-label">Events/s</span>
+                  <span class="channel-value">{{ liveEventsPerSec() }}</span>
+                </div>
+                <div class="channel-row">
+                  <span class="channel-label">Protocol</span>
+                  <span class="channel-value">WebSocket</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- ─── Code ─── -->
         <section aria-labelledby="section-code">
           <h2 id="section-code" class="section-heading">🧑‍💻 Getting Started</h2>
@@ -1329,6 +729,7 @@ export class MapDemoComponent implements OnDestroy {
   readonly mainMapEl = viewChild<ElementRef<HTMLDivElement>>('mainMapEl');
   readonly layerMapEl = viewChild<ElementRef<HTMLDivElement>>('layerMapEl');
   readonly geoMapEl = viewChild<ElementRef<HTMLDivElement>>('geoMapEl');
+  readonly liveMapEl = viewChild<ElementRef<HTMLDivElement>>('liveMapEl');
 
   // ── State ──
   readonly currentStyle = signal<string>('voyager');
@@ -1343,12 +744,23 @@ export class MapDemoComponent implements OnDestroy {
   readonly selectedLocation = signal<SearchResultItem | null>(POPULAR_LOCATIONS[0]);
   readonly hasSearched = signal<boolean>(false);
 
+  // ── LiveShare signals ──
+  readonly liveUsers = signal<LiveUser[]>([]);
+  readonly liveSimRunning = signal<boolean>(true);
+  readonly liveEventsPerSec = signal<string>('0');
+  readonly liveActiveCount = computed(() => this.liveUsers().filter(u => u.status === 'active').length);
+
   // ── Map instances ──
   private mainMap: Map | null = null;
   private layerMap: Map | null = null;
   private geoMap: Map | null = null;
+  private liveMap: Map | null = null;
   private markers: Marker[] = [];
   private geoMarker: Marker | null = null;
+  private liveMarkers: Record<string, { marker: Marker; el: HTMLElement }> = {};
+  private simInterval: ReturnType<typeof setInterval> | null = null;
+  private eventCounter = 0;
+  private eventRateInterval: ReturnType<typeof setInterval> | null = null;
 
   readonly maplibreVersion = maplibreglPkg.version;
 
@@ -1502,11 +914,13 @@ export class MapDemoComponent implements OnDestroy {
       this.initMainMap();
       this.initLayerMap();
       this.initGeoMap();
+      this.initLiveMap();
 
       setTimeout(() => {
         this.mainMap?.resize();
         this.layerMap?.resize();
         this.geoMap?.resize();
+        this.liveMap?.resize();
       }, 300);
 
       window.addEventListener('resize', this.onWindowResize);
@@ -1515,6 +929,8 @@ export class MapDemoComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     window.removeEventListener('resize', this.onWindowResize);
+    this.stopSimulation();
+    if (this.eventRateInterval) clearInterval(this.eventRateInterval);
     this.destroyAllMaps();
   }
 
@@ -1522,6 +938,7 @@ export class MapDemoComponent implements OnDestroy {
     this.mainMap?.resize();
     this.layerMap?.resize();
     this.geoMap?.resize();
+    this.liveMap?.resize();
   };
 
   // ── Main map ──
@@ -1889,16 +1306,179 @@ export class MapDemoComponent implements OnDestroy {
     }
   }
 
+  // ── LiveShare / Simulation ──
+  private initLiveMap(): void {
+    if (this.liveMap) return;
+    const el = this.liveMapEl()?.nativeElement;
+    if (!el) return;
+
+    this.liveMap = new Map({
+      container: el,
+      style: CARTO_DARK_STYLE,
+      center: [106.845, -6.215],
+      zoom: 10.5,
+      attributionControl: false,
+    });
+
+    this.liveMap.addControl(new NavigationControl(), 'bottom-right');
+    this.liveMap.addControl(new ScaleControl(), 'bottom-right');
+
+    this.liveMap.on('load', () => {
+      this.liveMap?.resize();
+      this.initLiveUsers();
+      this.startSimulation();
+      this.startEventRateCounter();
+    });
+  }
+
+  private initLiveUsers(): void {
+    const users: LiveUser[] = LIVE_USERS_SEED.map((seed) => ({
+      ...seed,
+      lastSeen: Date.now(),
+      lngLat: [
+        randInRange(SIM_BOUNDS.minLng, SIM_BOUNDS.maxLng),
+        randInRange(SIM_BOUNDS.minLat, SIM_BOUNDS.maxLat),
+      ],
+      speed: randInRange(0.002, 0.006),
+      heading: [
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2,
+      ],
+    }));
+    this.liveUsers.set(users);
+    users.forEach((u) => this.addOrUpdateLiveMarker(u));
+  }
+
+  private addOrUpdateLiveMarker(user: LiveUser): void {
+    if (!this.liveMap) return;
+    const existing = this.liveMarkers[user.id];
+    if (existing) {
+      existing.marker.setLngLat(user.lngLat);
+      existing.el.style.opacity = user.status === 'away' ? '0.45' : '1';
+      return;
+    }
+
+    const el = document.createElement('div');
+    el.className = 'live-avatar-marker';
+    el.setAttribute('aria-label', `${user.name} is at this location`);
+    el.innerHTML = `
+      <div class="avatar-pin">
+        <div class="avatar-bubble" style="background: ${user.color}; box-shadow: 0 2px 8px ${user.color}66, 0 0 0 2px ${user.color}44">
+          <span class="avatar-emoji">${user.avatar}</span>
+        </div>
+        <div class="avatar-label" style="color: ${user.color}">${user.name}</div>
+      </div>
+    `;
+
+    const marker = new Marker({ element: el, anchor: 'top' })
+      .setLngLat(user.lngLat)
+      .addTo(this.liveMap);
+
+    this.liveMarkers[user.id] = { marker, el };
+  }
+
+  private startSimulation(): void {
+    this.liveSimRunning.set(true);
+    this.simInterval = setInterval(() => this.tickSimulation(), SIM_TICK_MS);
+  }
+
+  private stopSimulation(): void {
+    if (this.simInterval) {
+      clearInterval(this.simInterval);
+      this.simInterval = null;
+    }
+    this.liveSimRunning.set(false);
+  }
+
+  private tickSimulation(): void {
+    const current = this.liveUsers();
+    const updated = current.map((user) => {
+      if (user.status === 'away') return user;
+
+      // Occasionally change direction or status
+      let heading = user.heading;
+      let status = user.status;
+
+      if (Math.random() < 0.15) {
+        const angle = Math.random() * Math.PI * 2;
+        heading = [Math.cos(angle), Math.sin(angle)] as [number, number];
+      }
+      if (Math.random() < 0.08) {
+        status = status === 'active' ? 'idle' : 'active';
+      }
+
+      let newLng = user.lngLat[0] + heading[0] * user.speed;
+      let newLat = user.lngLat[1] + heading[1] * user.speed * 0.5;
+
+      // Bounce off bounds
+      if (newLng < SIM_BOUNDS.minLng || newLng > SIM_BOUNDS.maxLng) {
+        heading = [-heading[0], heading[1]] as [number, number];
+        newLng = Math.max(SIM_BOUNDS.minLng, Math.min(SIM_BOUNDS.maxLng, newLng));
+      }
+      if (newLat < SIM_BOUNDS.minLat || newLat > SIM_BOUNDS.maxLat) {
+        heading = [heading[0], -heading[1]] as [number, number];
+        newLat = Math.max(SIM_BOUNDS.minLat, Math.min(SIM_BOUNDS.maxLat, newLat));
+      }
+
+      return {
+        ...user,
+        lngLat: [newLng, newLat] as [number, number],
+        heading,
+        status,
+        lastSeen: Date.now(),
+      };
+    });
+
+    this.liveUsers.set(updated);
+    updated.forEach((u) => this.addOrUpdateLiveMarker(u));
+    this.eventCounter += updated.filter(u => u.status !== 'away').length;
+  }
+
+  private startEventRateCounter(): void {
+    let last = 0;
+    this.eventRateInterval = setInterval(() => {
+      const rate = this.eventCounter - last;
+      last = this.eventCounter;
+      this.liveEventsPerSec.set(String(rate));
+    }, 1000);
+  }
+
+  toggleSimulation(): void {
+    if (this.liveSimRunning()) {
+      this.stopSimulation();
+    } else {
+      this.startSimulation();
+    }
+  }
+
+  resetSimulation(): void {
+    this.stopSimulation();
+    // Remove all live markers
+    Object.values(this.liveMarkers).forEach(({ marker }) => marker.remove());
+    this.liveMarkers = {};
+    this.liveUsers.set([]);
+    this.eventCounter = 0;
+    this.liveEventsPerSec.set('0');
+    setTimeout(() => {
+      this.initLiveUsers();
+      this.startSimulation();
+    }, 400);
+  }
+
   // ── Cleanup ──
   private destroyAllMaps(): void {
     this.markers.forEach((m) => m.remove());
     this.markers = [];
     this.geoMarker?.remove();
+    Object.values(this.liveMarkers).forEach(({ marker }) => marker.remove());
+    this.liveMarkers = {};
     this.mainMap?.remove();
     this.layerMap?.remove();
     this.geoMap?.remove();
+    this.liveMap?.remove();
     this.mainMap = null;
     this.layerMap = null;
     this.geoMap = null;
+    this.liveMap = null;
   }
 }
